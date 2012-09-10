@@ -1,0 +1,138 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.commonjava.redhat.maven</groupId>
+  <artifactId>repository-validator</artifactId>
+  <version>0.1-SNAPSHOT</version>
+
+  <name>Repository Validator</name>
+
+  <developers>
+    <developer>
+      <id>jdcasey</id>
+      <name>John Casey</name>
+      <email>jdcasey@redhat.com</email>
+      <organization>Red Hat</organization>
+      <organizationUrl>http://www.redhat.com/</organizationUrl>
+      <timezone>-5</timezone>
+    </developer>
+  </developers>
+  
+  <scm>
+    <url>http://github.com/jdcasey/pom-version-manipulator</url>
+    <connection>scm:git:http://github.com/jdcasey/pom-version-manipulator.git</connection>
+    <developerConnection>scm:git:git@github.com:jdcasey/pom-version-manipulator.git</developerConnection>
+  </scm>
+  
+  <licenses>
+    <license>
+      <name>GNU General Public License v3</name>
+      <url>http://www.gnu.org/licenses/gpl.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <mavenVersion>3.0.3</mavenVersion>
+    <slf4jVersion>1.6.1</slf4jVersion>
+    <maeVersion>1.0-alpha-1</maeVersion>
+  </properties>
+  
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.apache.maven.mae</groupId>
+        <artifactId>mae-app-bom</artifactId>
+        <version>${maeVersion}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+        <groupId>org.apache.maven.mae</groupId>
+        <artifactId>mae-booter</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.apache.maven.mae.components</groupId>
+        <artifactId>mae-project-tools</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.apache.maven.mae.components</groupId>
+        <artifactId>mae-graph-support</artifactId>
+        <version>${maeVersion}</version>
+    </dependency>
+    <dependency>
+        <groupId>org.apache.maven</groupId>
+        <artifactId>maven-core</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.apache.maven</groupId>
+        <artifactId>maven-model-builder</artifactId>
+    </dependency>
+    
+    <dependency>
+    	<groupId>args4j</groupId>
+    	<artifactId>args4j</artifactId>
+    	<version>2.0.12</version>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4jVersion}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>${slf4jVersion}</version>
+    </dependency>
+    <dependency>
+    	<groupId>org.slf4j</groupId>
+    	<artifactId>jul-to-slf4j</artifactId>
+    	<version>${slf4jVersion}</version>
+    </dependency>
+    <dependency>
+    	<groupId>org.slf4j</groupId>
+    	<artifactId>jcl-over-slf4j</artifactId>
+    	<version>${slf4jVersion}</version>
+    </dependency>
+    <dependency>
+      <groupId>log4j</groupId>
+      <artifactId>log4j</artifactId>
+    </dependency>
+    
+    <dependency>
+    	<groupId>org.apache.httpcomponents</groupId>
+    	<artifactId>httpclient</artifactId>
+    	<version>4.1.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>commons-logging</groupId>
+          <artifactId>commons-logging</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    
+    <dependency>
+    	<groupId>commons-io</groupId>
+    	<artifactId>commons-io</artifactId>
+    </dependency>
+    <dependency>
+    	<groupId>commons-lang</groupId>
+    	<artifactId>commons-lang</artifactId>
+    	<version>2.5</version>
+    </dependency>
+    
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.10</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>
