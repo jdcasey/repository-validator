@@ -37,7 +37,13 @@ public class DirModelResolver
             .append( version )
             .append( ".pom" );
 
-        return new FileModelSource( new File( dir, path.toString() ) );
+        final File pom = new File( dir, path.toString() );
+        if ( pom.exists() )
+        {
+            return new FileModelSource( pom );
+        }
+
+        throw new UnresolvableModelException( "POM does not exist: " + pom, groupId, artifactId, version );
     }
 
     public void addRepository( final Repository repository )

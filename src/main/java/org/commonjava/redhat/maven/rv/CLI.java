@@ -15,7 +15,7 @@ public class CLI
     private static final String USER_DIR = System.getProperty( "user.dir", "." );
 
     @Argument( index = 0, metaVar = "repository", usage = "Directory containing repository to validate." )
-    private File repository = new File( USER_DIR, "pom.xml" );
+    private File repository = new File( USER_DIR );
 
     @Option( name = "-e", usage = "POM exclude path pattern (glob)" )
     private String pomExcludePattern;

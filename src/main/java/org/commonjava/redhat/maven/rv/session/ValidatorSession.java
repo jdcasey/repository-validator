@@ -2,10 +2,10 @@ package org.commonjava.redhat.maven.rv.session;
 
 import java.io.File;
 import java.net.MalformedURLException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -14,7 +14,6 @@ import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.mae.project.ProjectToolsException;
 import org.apache.maven.mae.project.session.SessionInitializer;
 import org.apache.maven.mae.project.session.SimpleProjectToolsSession;
-import org.apache.maven.model.Model;
 import org.apache.maven.model.Repository;
 import org.apache.maven.model.building.DefaultModelBuildingRequest;
 import org.apache.maven.model.building.ModelBuildingRequest;
@@ -23,10 +22,15 @@ import org.apache.maven.model.resolution.ModelResolver;
 import org.apache.maven.repository.RepositorySystem;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.comp.DirModelResolver;
-import org.commonjava.redhat.maven.rv.comp.SimpleModelCache;
+import org.commonjava.redhat.maven.rv.model.ArtifactRef;
+import org.commonjava.util.logging.Logger;
+import org.sonatype.aether.RepositorySystemSession;
+import org.sonatype.aether.repository.RemoteRepository;
 
 public class ValidatorSession
 {
+
+    private final Logger logger = new Logger( getClass() );
 
     private final Set<String> pomExcludes;
 
@@ -38,7 +42,9 @@ public class ValidatorSession
 
     private final Map<String, Set<Exception>> modelErrors = new HashMap<String, Set<Exception>>();
 
-    private final Set<String> seen = new HashSet<String>();
+    private final Set<ArtifactRef> seen = new HashSet<ArtifactRef>();
+
+    private final Set<ArtifactRef> missing = new HashSet<ArtifactRef>();
 
     private DirModelResolver modelResolver;
 
@@ -77,7 +83,24 @@ public class ValidatorSession
 
         public Builder withPomExcludes( final String... excludes )
         {
-            pomExcludes.addAll( Arrays.asList( excludes ) );
+            for ( final String exclude : excludes )
+            {
+                if ( exclude == null )
+                {
+                    continue;
+                }
+
+                final String[] parts = exclude.split( "\\s*,\\s*" );
+                for ( String part : parts )
+                {
+                    part = part.trim();
+                    if ( part.length() > 0 )
+                    {
+                        pomExcludes.add( part );
+                    }
+                }
+            }
+
             return this;
         }
 
@@ -87,14 +110,31 @@ public class ValidatorSession
         }
     }
 
-    public boolean hasSeenModel( final String id )
+    public boolean isMissing( final ArtifactRef id )
     {
+        logger.info( "Has %s been marked missing? %b", id, seen.contains( id ) );
+        return missing.contains( id );
+    }
+
+    public boolean hasSeen( final ArtifactRef id )
+    {
+        logger.info( "Has %s been seen? %b", id, seen.contains( id ) );
         return seen.contains( id );
     }
 
-    public void addSeenModel( final Model model )
+    public void addSeen( final ArtifactRef id )
     {
-        seen.add( model.getId() );
+        final boolean result = seen.add( id );
+        logger.info( "Added %s to seen list? %b", id, result );
+    }
+
+    public void addMissing( final ArtifactRef id )
+    {
+        boolean result = missing.add( id );
+        logger.info( "Added %s to missing list? %b", id, result );
+
+        result = seen.add( id );
+        logger.info( "Added %s to seen list? %b", id, result );
     }
 
     public void addModelProblem( final String pom, final ModelProblem problem )
@@ -178,7 +218,7 @@ public class ValidatorSession
 
         baseModelBuildingRequest = new DefaultModelBuildingRequest();
         baseModelBuildingRequest.setLocationTracking( true );
-        baseModelBuildingRequest.setModelCache( new SimpleModelCache() );
+        //        baseModelBuildingRequest.setModelCache( new SimpleModelCache() );
         baseModelBuildingRequest.setValidationLevel( ModelBuildingRequest.VALIDATION_LEVEL_MAVEN_3_0 );
 
         baseArtifactResolutionRequest = new ArtifactResolutionRequest();
@@ -193,6 +233,16 @@ public class ValidatorSession
             throw new ValidationException( "Failed to create local repository instance at: %s. Error: %s", e,
                                            localRepo, e.getMessage() );
         }
+    }
+
+    public RepositorySystemSession getRepositorySystemSession()
+    {
+        return projectSession.getRepositorySystemSession();
+    }
+
+    public List<RemoteRepository> getRemoteRepositories()
+    {
+        return projectSession.getRemoteRepositoriesForResolution();
     }
 
 }
