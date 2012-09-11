@@ -2,6 +2,7 @@ package org.commonjava.redhat.maven.rv.session;
 
 import java.io.File;
 import java.net.MalformedURLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -11,6 +12,14 @@ import java.util.Set;
 
 import org.apache.maven.artifact.InvalidRepositoryException;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
+import org.apache.maven.graph.common.DependencyScope;
+import org.apache.maven.graph.common.ref.ArtifactRef;
+import org.apache.maven.graph.common.ref.ProjectVersionRef;
+import org.apache.maven.graph.effective.EProjectRelationships;
+import org.apache.maven.graph.effective.rel.DependencyRelationship;
+import org.apache.maven.graph.effective.rel.ExtensionRelationship;
+import org.apache.maven.graph.effective.rel.PluginDependencyRelationship;
+import org.apache.maven.graph.effective.rel.PluginRelationship;
 import org.apache.maven.mae.project.ProjectToolsException;
 import org.apache.maven.mae.project.session.SessionInitializer;
 import org.apache.maven.mae.project.session.SimpleProjectToolsSession;
@@ -22,7 +31,6 @@ import org.apache.maven.model.resolution.ModelResolver;
 import org.apache.maven.repository.RepositorySystem;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.comp.DirModelResolver;
-import org.commonjava.redhat.maven.rv.model.ArtifactRef;
 import org.commonjava.util.logging.Logger;
 import org.sonatype.aether.RepositorySystemSession;
 import org.sonatype.aether.repository.RemoteRepository;
@@ -38,13 +46,14 @@ public class ValidatorSession
 
     private final File workspaceDirectory;
 
-    private final Map<String, Set<ModelProblem>> modelProblems = new HashMap<String, Set<ModelProblem>>();
+    private final Map<ProjectVersionRef, Set<ModelProblem>> modelProblems =
+        new HashMap<ProjectVersionRef, Set<ModelProblem>>();
 
-    private final Map<String, Set<Exception>> modelErrors = new HashMap<String, Set<Exception>>();
+    private final Map<ProjectVersionRef, Set<Exception>> modelErrors = new HashMap<ProjectVersionRef, Set<Exception>>();
 
-    private final Set<ArtifactRef> seen = new HashSet<ArtifactRef>();
+    private final Set<ProjectVersionRef> seen = new HashSet<ProjectVersionRef>();
 
-    private final Set<ArtifactRef> missing = new HashSet<ArtifactRef>();
+    private final Set<ProjectVersionRef> missing = new HashSet<ProjectVersionRef>();
 
     private DirModelResolver modelResolver;
 
@@ -53,6 +62,11 @@ public class ValidatorSession
     private DefaultModelBuildingRequest baseModelBuildingRequest;
 
     private SimpleProjectToolsSession projectSession = new SimpleProjectToolsSession();
+
+    private List<Exception> lowLevelErrors = new ArrayList<Exception>();
+
+    private Map<ProjectVersionRef, EProjectRelationships.Builder> relationshipBuilders =
+        new HashMap<ProjectVersionRef, EProjectRelationships.Builder>();
 
     private ValidatorSession( final File repositoryDirectory, final File workspaceDirectory,
                               final Set<String> pomExcludes )
@@ -110,25 +124,25 @@ public class ValidatorSession
         }
     }
 
-    public boolean isMissing( final ArtifactRef id )
+    public boolean isMissing( final ProjectVersionRef id )
     {
         logger.info( "Has %s been marked missing? %b", id, seen.contains( id ) );
         return missing.contains( id );
     }
 
-    public boolean hasSeen( final ArtifactRef id )
+    public boolean hasSeen( final ProjectVersionRef id )
     {
         logger.info( "Has %s been seen? %b", id, seen.contains( id ) );
         return seen.contains( id );
     }
 
-    public void addSeen( final ArtifactRef id )
+    public void addSeen( final ProjectVersionRef id )
     {
         final boolean result = seen.add( id );
         logger.info( "Added %s to seen list? %b", id, result );
     }
 
-    public void addMissing( final ArtifactRef id )
+    public void addMissing( final ProjectVersionRef id )
     {
         boolean result = missing.add( id );
         logger.info( "Added %s to missing list? %b", id, result );
@@ -137,25 +151,28 @@ public class ValidatorSession
         logger.info( "Added %s to seen list? %b", id, result );
     }
 
-    public void addModelProblem( final String pom, final ModelProblem problem )
+    public void addModelProblem( final ProjectVersionRef ref, final ModelProblem problem )
     {
-        Set<ModelProblem> problems = modelProblems.get( pom );
+        logger.error( "PROBLEM in: %s was: %s", ref, problem );
+        Set<ModelProblem> problems = modelProblems.get( ref );
         if ( problems == null )
         {
             problems = new HashSet<ModelProblem>();
-            modelProblems.put( pom, problems );
+            modelProblems.put( ref, problems );
         }
 
         problems.add( problem );
     }
 
-    public void addModelError( final String pom, final Exception error )
+    public void addModelError( final ProjectVersionRef src, final Exception error )
     {
-        Set<Exception> errors = modelErrors.get( pom );
+        logger.error( "ERROR in: %s was: %s", src, error );
+
+        Set<Exception> errors = modelErrors.get( src );
         if ( errors == null )
         {
             errors = new HashSet<Exception>();
-            modelErrors.put( pom, errors );
+            modelErrors.put( src, errors );
         }
 
         errors.add( error );
@@ -243,6 +260,70 @@ public class ValidatorSession
     public List<RemoteRepository> getRemoteRepositories()
     {
         return projectSession.getRemoteRepositoriesForResolution();
+    }
+
+    public void addLowLevelError( final Exception error )
+    {
+        lowLevelErrors.add( error );
+    }
+
+    public void addPluginLink( final ProjectVersionRef src, final ProjectVersionRef ref, final int index,
+                               final boolean managed, final boolean reporting )
+    {
+        final PluginRelationship rel = new PluginRelationship( src, ref, index, managed, reporting );
+
+        EProjectRelationships.Builder builder = relationshipBuilders.get( src );
+        if ( builder == null )
+        {
+            builder = new EProjectRelationships.Builder( src );
+            relationshipBuilders.put( src, builder );
+        }
+
+        builder.withPlugins( rel );
+    }
+
+    public void addExtensionLink( final ProjectVersionRef src, final ProjectVersionRef ref, final int index )
+    {
+        final ExtensionRelationship rel = new ExtensionRelationship( src, ref, index );
+
+        EProjectRelationships.Builder builder = relationshipBuilders.get( src );
+        if ( builder == null )
+        {
+            builder = new EProjectRelationships.Builder( src );
+            relationshipBuilders.put( src, builder );
+        }
+
+        builder.withExtensions( rel );
+    }
+
+    public void addPluginDependencyLink( final ProjectVersionRef src, final ProjectVersionRef plugin,
+                                         final ArtifactRef ref, final int index, final boolean managed )
+    {
+        final PluginDependencyRelationship rel = new PluginDependencyRelationship( src, plugin, ref, index, managed );
+
+        EProjectRelationships.Builder builder = relationshipBuilders.get( src );
+        if ( builder == null )
+        {
+            builder = new EProjectRelationships.Builder( src );
+            relationshipBuilders.put( src, builder );
+        }
+
+        builder.withPluginDependencies( rel );
+    }
+
+    public void addDependencyLink( final ProjectVersionRef src, final ArtifactRef ref, final DependencyScope scope,
+                                   final int index, final boolean managed )
+    {
+        final DependencyRelationship rel = new DependencyRelationship( src, ref, scope, index, managed );
+
+        EProjectRelationships.Builder builder = relationshipBuilders.get( src );
+        if ( builder == null )
+        {
+            builder = new EProjectRelationships.Builder( src );
+            relationshipBuilders.put( src, builder );
+        }
+
+        builder.withDependencies( rel );
     }
 
 }
