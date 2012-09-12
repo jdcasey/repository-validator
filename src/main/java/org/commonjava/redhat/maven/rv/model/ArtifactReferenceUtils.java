@@ -24,7 +24,17 @@ public final class ArtifactReferenceUtils
         ProjectVersionRef ref = null;
         try
         {
-            ref = new ProjectVersionRef( model.getGroupId(), model.getArtifactId(), model.getVersion() );
+            String group = model.getGroupId();
+            if (group == null)
+            {
+                group = model.getParent().getGroupId();
+            }
+            String version = model.getVersion();
+            if(version == null)
+            {
+                version = model.getParent().getVersion();
+            }
+            ref = new ProjectVersionRef( group, model.getArtifactId(), version );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
