@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -68,6 +69,10 @@ public class ValidatorSession
     private Map<ProjectVersionRef, EProjectRelationships.Builder> relationshipBuilders =
         new HashMap<ProjectVersionRef, EProjectRelationships.Builder>();
 
+    private LinkedList<ProjectVersionRef> projectsToResolve = new LinkedList<ProjectVersionRef>();
+
+    private LinkedList<ArtifactRef> typesToResolve = new LinkedList<ArtifactRef>();
+
     private ValidatorSession( final File repositoryDirectory, final File workspaceDirectory,
                               final Set<String> pomExcludes )
     {
@@ -126,29 +131,38 @@ public class ValidatorSession
 
     public boolean isMissing( final ProjectVersionRef id )
     {
-        logger.info( "Has %s been marked missing? %b", id, seen.contains( id ) );
+        //        logger.info( "Has %s[toString=%s, hashCode=%s] been marked missing? %b", id.getClass()
+        //                                                                                   .getName(), id, id.hashCode(),
+        //                     missing.contains( id ) );
+        //
         return missing.contains( id );
     }
 
     public boolean hasSeen( final ProjectVersionRef id )
     {
-        logger.info( "Has %s been seen? %b", id, seen.contains( id ) );
+        //        logger.info( "Has %s[toString=%s, hashCode=%s] been marked seen? %b", id.getClass()
+        //                                                                                .getName(), id, id.hashCode(),
+        //                     seen.contains( id ) );
+        //
         return seen.contains( id );
     }
 
     public void addSeen( final ProjectVersionRef id )
     {
-        final boolean result = seen.add( id );
-        logger.info( "Added %s to seen list? %b", id, result );
+        seen.add( id );
+        //        logger.info( "Has %s[toString=%s, hashCode=%s] been marked seen? %b", id.getClass()
+        //                                                                                .getName(), id, id.hashCode(),
+        //                     seen.contains( id ) );
     }
 
     public void addMissing( final ProjectVersionRef id )
     {
-        boolean result = missing.add( id );
-        logger.info( "Added %s to missing list? %b", id, result );
+        missing.add( id );
+        //        logger.info( "Has %s[toString=%s, hashCode=%s] been marked missing? %b", id.getClass()
+        //                                                                                   .getName(), id, id.hashCode(),
+        //                     missing.contains( id ) );
 
-        result = seen.add( id );
-        logger.info( "Added %s to seen list? %b", id, result );
+        addSeen( id );
     }
 
     public void addModelProblem( final ProjectVersionRef ref, final ModelProblem problem )
@@ -234,6 +248,7 @@ public class ValidatorSession
         }
 
         baseModelBuildingRequest = new DefaultModelBuildingRequest();
+        baseModelBuildingRequest.setSystemProperties( System.getProperties() );
         baseModelBuildingRequest.setLocationTracking( true );
         //        baseModelBuildingRequest.setModelCache( new SimpleModelCache() );
         baseModelBuildingRequest.setValidationLevel( ModelBuildingRequest.VALIDATION_LEVEL_MAVEN_3_0 );
@@ -324,6 +339,49 @@ public class ValidatorSession
         }
 
         builder.withDependencies( rel );
+    }
+
+    public ProjectVersionRef getNextToProjectResolve()
+    {
+        final ProjectVersionRef ref = projectsToResolve.isEmpty() ? null : projectsToResolve.removeFirst();
+        //        if ( ref != null )
+        //        {
+        //            logger.info( "[POM] -%s", ref );
+        //        }
+
+        return ref;
+    }
+
+    public ArtifactRef getNextArtifactToResolve()
+    {
+        final ArtifactRef ref = typesToResolve.isEmpty() ? null : typesToResolve.removeFirst();
+        //        if ( ref != null )
+        //        {
+        //            logger.info( "[ARTIFACT] -%s", ref );
+        //        }
+
+        return ref;
+    }
+
+    public void addArtifactToResolve( ProjectVersionRef ref, final String type )
+    {
+        if ( ref instanceof ArtifactRef )
+        {
+            ref = ( (ArtifactRef) ref ).asProjectVersionRef();
+        }
+
+        if ( !hasSeen( ref ) && !projectsToResolve.contains( ref ) )
+        {
+            //            logger.info( "[POM] +%s", ref );
+            projectsToResolve.addLast( ref );
+        }
+
+        final ArtifactRef artiRef = new ArtifactRef( ref, type, null, false );
+        if ( !typesToResolve.contains( artiRef ) )
+        {
+            //            logger.info( "[ARTIFACT] +%s", artiRef );
+            typesToResolve.addLast( artiRef );
+        }
     }
 
 }

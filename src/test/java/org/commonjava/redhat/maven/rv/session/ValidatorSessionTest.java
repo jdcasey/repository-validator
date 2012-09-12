@@ -24,11 +24,10 @@ public class ValidatorSessionTest
         throws InvalidVersionSpecificationException
     {
         final ValidatorSession session = new ValidatorSession.Builder( null, null ).build();
-        session.addMissing( new ProjectVersionRef( "org.foo", "bar", "1.1.1-rebuild-1" ) );
+        session.addMissing( new ProjectVersionRef( "isorelax", "isorelax", "20050331" ) );
 
-        final ProjectVersionRef ref = new ProjectVersionRef( "org.foo", "bar", "1.1.1-rebuild-1" );
+        final ProjectVersionRef ref = new ProjectVersionRef( "isorelax", "isorelax", "20050331" );
         assertThat( session.isMissing( ref ), equalTo( true ) );
-        assertThat( session.hasSeen( ref ), equalTo( true ) );
     }
 
 }

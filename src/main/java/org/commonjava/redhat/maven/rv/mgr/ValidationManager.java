@@ -4,7 +4,9 @@ import static org.commonjava.redhat.maven.rv.model.ArtifactReferenceUtils.toArti
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -89,6 +91,10 @@ public class ValidationManager
         for ( final String pom : poms )
         {
             final File pomFile = new File( repositoryDir, pom );
+            if ( !pomFile.exists() )
+            {
+                continue;
+            }
 
             final Model model = buildModel( pomFile, session );
 
@@ -99,16 +105,64 @@ public class ValidationManager
             }
         }
 
+        ProjectVersionRef ref = null;
+        while ( ( ref = session.getNextToProjectResolve() ) != null )
+        {
+            if ( session.hasSeen( ref ) )
+            {
+                continue;
+            }
+
+            logger.info( "\n\nValidating: %s\n\n", ref );
+
+            final ModelSource source = resolveModel( ref, session );
+            if ( source == null )
+            {
+                session.addMissing( ref );
+                continue;
+            }
+
+            final Model model = buildModel( source, session );
+            if ( model == null )
+            {
+                session.addMissing( ref );
+                continue;
+            }
+
+            validateProjectGraph( model, session );
+        }
+
+        ArtifactRef artiRef = null;
+        while ( ( artiRef = session.getNextArtifactToResolve() ) != null )
+        {
+            resolveArtifact( artiRef, session );
+        }
+
         // TODO: Report errors encountered and logged in session!
     }
 
-    private ModelSource resolveModel( final ProjectVersionRef ref, final ValidatorSession session,
-                                      final ProjectVersionRef src )
+    private ModelSource resolveModel( ProjectVersionRef ref, final ValidatorSession session )
     {
+        if ( ref instanceof ArtifactRef )
+        {
+            ref = ( (ArtifactRef) ref ).asProjectVersionRef();
+        }
+
+        if ( session.isMissing( ref ) )
+        {
+            logger.info( "%s is already marked as missing. Skipping.", ref );
+            return null;
+        }
+        else
+        {
+            logger.info( "Resolving POM for %s", ref );
+        }
+
         ModelSource source = null;
         try
         {
-            // TODO: What about version ranges??
+            // FIXME: Resolve version ranges before attempting this.
+            // FIXME: Once version ranges are resolved, we'll need a decent way to log the seen/missing status for this ref.
             source = session.getModelResolver()
                             .resolveModel( ref.getGroupId(), ref.getArtifactId(), ref.getVersionSpec()
                                                                                      .renderStandard() );
@@ -116,7 +170,7 @@ public class ValidationManager
         catch ( final UnresolvableModelException e )
         {
             logger.info( "Failed to resolve: %s, Error was: %s", e, ref, e.getMessage() );
-            session.addModelError( src, e );
+            session.addModelError( ref, e );
 
             logger.info( "Marking missing: %s[%s]", ref.getClass()
                                                        .getName(), ref );
@@ -129,17 +183,12 @@ public class ValidationManager
     private Model buildModel( final File pomFile, final ValidatorSession session )
     {
         final ModelSource source = new FileModelSource( pomFile );
-        final Model model = buildModel( source, session, source.getLocation() );
-
-        if ( model != null )
-        {
-            session.addSeen( toArtifactRef( model, session ) );
-        }
+        final Model model = buildModel( source, session );
 
         return model;
     }
 
-    private Model buildModel( final ModelSource source, final ValidatorSession session, final String pomLocation )
+    private Model buildModel( final ModelSource source, final ValidatorSession session )
     {
         final DefaultModelBuildingRequest mbr =
             new DefaultModelBuildingRequest( session.getBaseModelBuildingRequest() ).setModelSource( source )
@@ -195,10 +244,17 @@ public class ValidationManager
                         session.addModelProblem( ref, problem );
                     }
                 }
+
+                session.addMissing( ref );
             }
 
             session.addLowLevelError( new ValidationException( "Failed to build Model for POM: %s. Reason: %s", e,
-                                                               pomLocation, e.getMessage() ) );
+                                                               source.getLocation(), e.getMessage() ) );
+        }
+
+        if ( model != null )
+        {
+            session.addSeen( toArtifactRef( model, session ) );
         }
 
         return model;
@@ -224,7 +280,7 @@ public class ValidationManager
         return null;
     }
 
-    private void resolveArtifact( final ArtifactRef ref, final ValidatorSession session, final ProjectVersionRef src )
+    private void resolveArtifact( final ArtifactRef ref, final ValidatorSession session )
     {
         final ArtifactResolutionRequest req =
             new ArtifactResolutionRequest( session.getBaseArtifactResolutionRequest() );
@@ -241,12 +297,8 @@ public class ValidationManager
             session.addMissing( ref );
             for ( final Exception exception : exceptions )
             {
-                session.addModelError( src, exception );
+                session.addModelError( ref.asProjectVersionRef(), exception );
             }
-        }
-        else
-        {
-            session.addSeen( ref );
         }
     }
 
@@ -255,16 +307,32 @@ public class ValidationManager
         logger.info( "Validating project references for: %s", model );
 
         final ProjectVersionRef src = toArtifactRef( model, session );
-        validateDependencySections( model, session, src );
+        validateDependencySections( model, session, null, src );
         validateBuild( model.getBuild(), session, src );
         validateReporting( model, session, src );
 
         final List<Profile> profiles = model.getProfiles();
         if ( profiles != null )
         {
+            final Map<ProjectRef, Dependency> managed = new HashMap<ProjectRef, Dependency>();
+            if ( model.getDependencyManagement() != null && model.getDependencyManagement()
+                                                                 .getDependencies() != null )
+            {
+                for ( final Dependency d : model.getDependencyManagement()
+                                                .getDependencies() )
+                {
+                    final ProjectRef ref = new ProjectRef( d.getGroupId(), d.getArtifactId() );
+                    if ( !managed.containsKey( ref ) )
+                    {
+                        managed.put( ref, d );
+                    }
+                }
+            }
+
             for ( final Profile profile : profiles )
             {
-                validateDependencySections( profile, session, src );
+                logger.info( "Validating profile: %s", profile.getId() );
+                validateDependencySections( profile, session, managed, src );
                 validateBuild( profile.getBuild(), session, src );
                 validateReporting( profile, session, src );
             }
@@ -272,22 +340,49 @@ public class ValidationManager
     }
 
     private void validateDependencySections( final ModelBase model, final ValidatorSession session,
+                                             final Map<ProjectRef, Dependency> inheritedManaged,
                                              final ProjectVersionRef src )
     {
+        final Map<ProjectRef, Dependency> managed = new HashMap<ProjectRef, Dependency>();
+        if ( model.getDependencyManagement() != null && model.getDependencyManagement()
+                                                             .getDependencies() != null )
+        {
+            for ( final Dependency d : model.getDependencyManagement()
+                                            .getDependencies() )
+            {
+                final ProjectRef ref = new ProjectRef( d.getGroupId(), d.getArtifactId() );
+                if ( !managed.containsKey( ref ) )
+                {
+                    managed.put( ref, d );
+                }
+            }
+        }
+
+        if ( inheritedManaged != null )
+        {
+            for ( final Map.Entry<ProjectRef, Dependency> entry : inheritedManaged.entrySet() )
+            {
+                if ( !managed.containsKey( entry.getKey() ) )
+                {
+                    managed.put( entry.getKey(), entry.getValue() );
+                }
+            }
+        }
+
         final DependencyManagement dm = model.getDependencyManagement();
         if ( dm != null )
         {
             final List<Dependency> deps = dm.getDependencies();
             if ( deps != null )
             {
-                validateDependencies( deps, session, true, src );
+                validateDependencies( deps, session, null, true, src );
             }
         }
 
         final List<Dependency> deps = model.getDependencies();
         if ( deps != null )
         {
-            validateDependencies( deps, session, false, src );
+            validateDependencies( deps, session, managed, false, src );
         }
     }
 
@@ -325,7 +420,7 @@ public class ValidationManager
 
     private void validateReporting( final ModelBase model, final ValidatorSession session, final ProjectVersionRef src )
     {
-        logger.info( "Validating reporting: %s", src );
+        //        logger.info( "Validating reporting: %s", src );
         final Reporting reporting = model.getReporting();
         if ( reporting != null )
         {
@@ -335,7 +430,12 @@ public class ValidationManager
                 int idx = 0;
                 for ( final ReportPlugin plugin : plugins )
                 {
-                    ProjectRef ref = toArtifactRef( plugin, session );
+                    ProjectRef ref = toArtifactRef( plugin, src, session );
+                    if ( ref == null )
+                    {
+                        continue;
+                    }
+
                     if ( !( ref instanceof ProjectVersionRef ) )
                     {
                         logger.info( "Resolving version for: %s", ref );
@@ -344,8 +444,13 @@ public class ValidationManager
 
                     if ( ref != null )
                     {
+                        if ( session.hasSeen( (ProjectVersionRef) ref ) )
+                        {
+                            continue;
+                        }
+
                         session.addPluginLink( src, (ProjectVersionRef) ref, idx, false, true );
-                        validateModelAndArtifact( (ProjectVersionRef) ref, "maven-plugin", session, src );
+                        session.addArtifactToResolve( (ProjectVersionRef) ref, "maven-plugin" );
                     }
 
                     idx++;
@@ -357,21 +462,34 @@ public class ValidationManager
     private void validatePlugins( final List<Plugin> plugins, final ValidatorSession session, final boolean managed,
                                   final ProjectVersionRef src )
     {
-        logger.info( "Validating plugins: %s", src );
+        //        logger.info( "Validating plugins: %s", src );
         if ( plugins != null )
         {
             int idx = 0;
             for ( final Plugin plugin : plugins )
             {
-                ProjectRef ref = toArtifactRef( plugin, session );
+                ProjectRef ref = toArtifactRef( plugin, src, session );
+                if ( ref == null )
+                {
+                    continue;
+                }
+
                 if ( !( ref instanceof ProjectVersionRef ) )
                 {
                     logger.info( "Resolving version for: %s", ref );
                     ref = resolvePluginVersion( ref, session, src );
                 }
 
-                session.addPluginLink( src, (ProjectVersionRef) ref, idx, managed, false );
-                validateModelAndArtifact( (ProjectVersionRef) ref, "maven-plugin", session, src );
+                if ( ref != null )
+                {
+                    if ( session.hasSeen( (ProjectVersionRef) ref ) )
+                    {
+                        continue;
+                    }
+
+                    session.addPluginLink( src, (ProjectVersionRef) ref, idx, managed, false );
+                    session.addArtifactToResolve( (ProjectVersionRef) ref, "maven-plugin" );
+                }
 
                 idx++;
             }
@@ -381,15 +499,25 @@ public class ValidationManager
     private void validateExtensions( final List<Extension> extensions, final ValidatorSession session,
                                      final ProjectVersionRef src )
     {
-        logger.info( "Validating extensions: %s", src );
+        //        logger.info( "Validating extensions: %s", src );
         if ( extensions != null )
         {
             int idx = 0;
             for ( final Extension extension : extensions )
             {
-                final ProjectVersionRef ref = toArtifactRef( extension, session );
+                final ProjectVersionRef ref = toArtifactRef( extension, src, session );
+                if ( ref == null )
+                {
+                    continue;
+                }
+
+                if ( session.hasSeen( ref ) )
+                {
+                    continue;
+                }
+
                 session.addExtensionLink( src, ref, idx );
-                validateModelAndArtifact( ref, "jar", session, src );
+                session.addArtifactToResolve( ref, "jar" );
 
                 idx++;
             }
@@ -397,78 +525,112 @@ public class ValidationManager
     }
 
     private void validateDependencies( final List<Dependency> deps, final ValidatorSession session,
-                                       final boolean managed, final ProjectVersionRef src )
+                                       final Map<ProjectRef, Dependency> managedInfo, final boolean managed,
+                                       final ProjectVersionRef src )
     {
-        logger.info( "Validating dependencies: %s", src );
+        //        logger.info( "Validating dependencies: %s", src );
         if ( deps != null )
         {
             int idx = 0;
             for ( final Dependency dependency : deps )
             {
-                final ArtifactRef ref = toArtifactRef( dependency, session );
+                //                logger.info( "[DEP] %s", dependency );
+
+                final ProjectRef r = new ProjectRef( dependency.getGroupId(), dependency.getArtifactId() );
+                final Dependency mgd = managedInfo == null ? null : managedInfo.get( r );
+
+                if ( mgd != null )
+                {
+                    if ( dependency.getVersion() == null && mgd.getVersion() != null )
+                    {
+                        dependency.setVersion( mgd.getVersion() );
+                    }
+
+                    if ( dependency.getScope() == null && mgd.getScope() != null )
+                    {
+                        dependency.setScope( mgd.getScope() );
+                    }
+
+                    if ( dependency.getExclusions() == null && mgd.getExclusions() != null )
+                    {
+                        dependency.setExclusions( mgd.getExclusions() );
+                    }
+                }
+
+                final ArtifactRef ref = toArtifactRef( dependency, src, session );
+                if ( ref == null )
+                {
+                    continue;
+                }
+
+                if ( session.hasSeen( ref.asProjectVersionRef() ) )
+                {
+                    continue;
+                }
+
                 session.addDependencyLink( src, ref, DependencyScope.getScope( dependency.getScope() ), idx, managed );
-                validateModelAndArtifact( ref, dependency.getType(), session, src );
+                session.addArtifactToResolve( ref, dependency.getType() );
 
                 idx++;
             }
         }
     }
 
-    private void validateModelAndArtifact( final ProjectVersionRef base, final String type,
-                                           final ValidatorSession session, final ProjectVersionRef src )
-    {
-        ProjectVersionRef pom = base;
-        if ( pom instanceof ArtifactRef )
-        {
-            pom = ( (ArtifactRef) pom ).asProjectVersionRef();
-        }
-
-        logger.info( "Checking missing: %s[%s]", pom.getClass()
-                                                    .getName(), pom );
-        if ( session.isMissing( pom ) )
-        {
-            return;
-        }
-
-        final ArtifactRef artifact = toArtifactRef( pom, type, session );
-
-        logger.info( "Validating model: %s with artifact of type: %s (referenced from: %s)", pom, type, src );
-
-        if ( !session.hasSeen( pom ) )
-        {
-            logger.info( "Building model for: %s", pom );
-
-            // build the model
-            final ModelSource source = resolveModel( pom, session, src );
-            if ( source != null )
-            {
-                logger.info( "Resolved to: %s", source.getLocation() );
-                final Model model = buildModel( source, session, source.getLocation() );
-
-                if ( model != null )
-                {
-                    session.addSeen( pom );
-
-                    // validate the project graph for the plugin
-                    validateProjectGraph( model, session );
-                }
-                else
-                {
-                    logger.info( "Marking missing: %s[%s]", pom.getClass()
-                                                               .getName(), pom );
-                    session.addMissing( pom );
-                }
-            }
-        }
-
-        if ( !session.hasSeen( artifact ) )
-        {
-            logger.info( "Resolving: %s:%s", artifact, type );
-
-            // resolve the jar (maven-plugin type)
-            resolveArtifact( artifact, session, src );
-        }
-    }
+    //    private void validateModelAndArtifact( final ProjectVersionRef base, final String type,
+    //                                           final ValidatorSession session, final ProjectVersionRef src )
+    //    {
+    //        ProjectVersionRef pom = base;
+    //        if ( pom instanceof ArtifactRef )
+    //        {
+    //            pom = ( (ArtifactRef) pom ).asProjectVersionRef();
+    //        }
+    //
+    //        logger.info( "Checking missing: %s[%s]", pom.getClass()
+    //                                                    .getName(), pom );
+    //        if ( session.isMissing( pom ) )
+    //        {
+    //            return;
+    //        }
+    //
+    //        final ArtifactRef artifact = toArtifactRef( pom, type, session );
+    //
+    //        logger.info( "Validating model: %s with artifact of type: %s (referenced from: %s)", pom, type, src );
+    //
+    //        if ( !session.hasSeen( pom ) )
+    //        {
+    //            logger.info( "Building model for: %s", pom );
+    //
+    //            // build the model
+    //            final ModelSource source = resolveModel( pom, session, src );
+    //            if ( source != null )
+    //            {
+    //                logger.info( "Resolved to: %s", source.getLocation() );
+    //                final Model model = buildModel( source, session, source.getLocation() );
+    //
+    //                if ( model != null )
+    //                {
+    //                    session.addSeen( pom );
+    //
+    //                    // validate the project graph for the plugin
+    //                    validateProjectGraph( model, session );
+    //                }
+    //                else
+    //                {
+    //                    logger.info( "Marking missing: %s[%s]", pom.getClass()
+    //                                                               .getName(), pom );
+    //                    session.addMissing( pom );
+    //                }
+    //            }
+    //        }
+    //
+    //        if ( !session.hasSeen( artifact ) )
+    //        {
+    //            logger.info( "Resolving: %s:%s", artifact, type );
+    //
+    //            // resolve the jar (maven-plugin type)
+    //            resolveArtifact( artifact, session, src );
+    //        }
+    //    }
 
     private ProjectVersionRef resolvePluginVersion( final ProjectRef ref, final ValidatorSession session,
                                                     final ProjectVersionRef src )
