@@ -1,4 +1,4 @@
-package org.commonjava.redhat.maven.rv.model;
+package org.commonjava.redhat.maven.rv.util;
 
 import org.apache.maven.graph.common.ref.ArtifactRef;
 import org.apache.maven.graph.common.ref.ProjectRef;

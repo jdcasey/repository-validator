@@ -1,6 +1,11 @@
 package org.commonjava.redhat.maven.rv.session;
 
+import static org.commonjava.redhat.maven.rv.util.AnnotationUtils.findNamed;
+
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -16,7 +21,7 @@ import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.graph.common.DependencyScope;
 import org.apache.maven.graph.common.ref.ArtifactRef;
 import org.apache.maven.graph.common.ref.ProjectVersionRef;
-import org.apache.maven.graph.effective.EProjectRelationships;
+import org.apache.maven.graph.effective.EProjectWeb;
 import org.apache.maven.graph.effective.rel.DependencyRelationship;
 import org.apache.maven.graph.effective.rel.ExtensionRelationship;
 import org.apache.maven.graph.effective.rel.PluginDependencyRelationship;
@@ -32,14 +37,14 @@ import org.apache.maven.model.resolution.ModelResolver;
 import org.apache.maven.repository.RepositorySystem;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.comp.DirModelResolver;
-import org.commonjava.util.logging.Logger;
+import org.commonjava.redhat.maven.rv.report.ValidationReport;
 import org.sonatype.aether.RepositorySystemSession;
 import org.sonatype.aether.repository.RemoteRepository;
 
 public class ValidatorSession
 {
 
-    private final Logger logger = new Logger( getClass() );
+    //    private final Logger logger = new Logger( getClass() );
 
     private final Set<String> pomExcludes;
 
@@ -66,25 +71,11 @@ public class ValidatorSession
 
     private List<Exception> lowLevelErrors = new ArrayList<Exception>();
 
-    private Map<ProjectVersionRef, EProjectRelationships.Builder> relationshipBuilders =
-        new HashMap<ProjectVersionRef, EProjectRelationships.Builder>();
+    private EProjectWeb projectWeb = new EProjectWeb();
 
     private LinkedList<ProjectVersionRef> projectsToResolve = new LinkedList<ProjectVersionRef>();
 
     private LinkedList<ArtifactRef> typesToResolve = new LinkedList<ArtifactRef>();
-
-    private ValidatorSession( final File repositoryDirectory, final File workspaceDirectory,
-                              final Set<String> pomExcludes )
-    {
-        this.repositoryDirectory = repositoryDirectory;
-        this.workspaceDirectory = workspaceDirectory;
-        this.pomExcludes = Collections.unmodifiableSet( pomExcludes );
-    }
-
-    public String[] getPomExcludes()
-    {
-        return pomExcludes.toArray( new String[] {} );
-    }
 
     public static final class Builder
     {
@@ -129,6 +120,19 @@ public class ValidatorSession
         }
     }
 
+    private ValidatorSession( final File repositoryDirectory, final File workspaceDirectory,
+                              final Set<String> pomExcludes )
+    {
+        this.repositoryDirectory = repositoryDirectory;
+        this.workspaceDirectory = workspaceDirectory;
+        this.pomExcludes = Collections.unmodifiableSet( pomExcludes );
+    }
+
+    public String[] getPomExcludes()
+    {
+        return pomExcludes.toArray( new String[] {} );
+    }
+
     public boolean isMissing( final ProjectVersionRef id )
     {
         //        logger.info( "Has %s[toString=%s, hashCode=%s] been marked missing? %b", id.getClass()
@@ -167,7 +171,7 @@ public class ValidatorSession
 
     public void addModelProblem( final ProjectVersionRef ref, final ModelProblem problem )
     {
-        logger.error( "PROBLEM in: %s was: %s", ref, problem );
+        //        logger.error( "PROBLEM in: %s was: %s", ref, problem );
         Set<ModelProblem> problems = modelProblems.get( ref );
         if ( problems == null )
         {
@@ -180,8 +184,7 @@ public class ValidatorSession
 
     public void addModelError( final ProjectVersionRef src, final Exception error )
     {
-        logger.error( "ERROR in: %s was: %s", src, error );
-
+        //        logger.error( "ERROR in: %s was: %s", src, error );
         Set<Exception> errors = modelErrors.get( src );
         if ( errors == null )
         {
@@ -286,59 +289,27 @@ public class ValidatorSession
                                final boolean managed, final boolean reporting )
     {
         final PluginRelationship rel = new PluginRelationship( src, ref, index, managed, reporting );
-
-        EProjectRelationships.Builder builder = relationshipBuilders.get( src );
-        if ( builder == null )
-        {
-            builder = new EProjectRelationships.Builder( src );
-            relationshipBuilders.put( src, builder );
-        }
-
-        builder.withPlugins( rel );
+        projectWeb.add( rel );
     }
 
     public void addExtensionLink( final ProjectVersionRef src, final ProjectVersionRef ref, final int index )
     {
         final ExtensionRelationship rel = new ExtensionRelationship( src, ref, index );
-
-        EProjectRelationships.Builder builder = relationshipBuilders.get( src );
-        if ( builder == null )
-        {
-            builder = new EProjectRelationships.Builder( src );
-            relationshipBuilders.put( src, builder );
-        }
-
-        builder.withExtensions( rel );
+        projectWeb.add( rel );
     }
 
     public void addPluginDependencyLink( final ProjectVersionRef src, final ProjectVersionRef plugin,
                                          final ArtifactRef ref, final int index, final boolean managed )
     {
         final PluginDependencyRelationship rel = new PluginDependencyRelationship( src, plugin, ref, index, managed );
-
-        EProjectRelationships.Builder builder = relationshipBuilders.get( src );
-        if ( builder == null )
-        {
-            builder = new EProjectRelationships.Builder( src );
-            relationshipBuilders.put( src, builder );
-        }
-
-        builder.withPluginDependencies( rel );
+        projectWeb.add( rel );
     }
 
     public void addDependencyLink( final ProjectVersionRef src, final ArtifactRef ref, final DependencyScope scope,
                                    final int index, final boolean managed )
     {
         final DependencyRelationship rel = new DependencyRelationship( src, ref, scope, index, managed );
-
-        EProjectRelationships.Builder builder = relationshipBuilders.get( src );
-        if ( builder == null )
-        {
-            builder = new EProjectRelationships.Builder( src );
-            relationshipBuilders.put( src, builder );
-        }
-
-        builder.withDependencies( rel );
+        projectWeb.add( rel );
     }
 
     public ProjectVersionRef getNextToProjectResolve()
@@ -376,12 +347,68 @@ public class ValidatorSession
             projectsToResolve.addLast( ref );
         }
 
-        final ArtifactRef artiRef = new ArtifactRef( ref, type, null, false );
+        final ArtifactRef artiRef =
+            ( ref instanceof ArtifactRef ) ? (ArtifactRef) ref : new ArtifactRef( ref, type, null, false );
         if ( !typesToResolve.contains( artiRef ) )
         {
             //            logger.info( "[ARTIFACT] +%s", artiRef );
             typesToResolve.addLast( artiRef );
         }
+    }
+
+    public final File getWorkspaceDirectory()
+    {
+        return workspaceDirectory;
+    }
+
+    public final Map<ProjectVersionRef, Set<ModelProblem>> getModelProblems()
+    {
+        return modelProblems;
+    }
+
+    public final Map<ProjectVersionRef, Set<Exception>> getModelErrors()
+    {
+        return modelErrors;
+    }
+
+    public final Set<ProjectVersionRef> getSeen()
+    {
+        return new HashSet<ProjectVersionRef>( seen );
+    }
+
+    public final Set<ProjectVersionRef> getMissing()
+    {
+        return new HashSet<ProjectVersionRef>( missing );
+    }
+
+    public final List<Exception> getLowLevelErrors()
+    {
+        return lowLevelErrors;
+    }
+
+    public EProjectWeb getProjectWeb()
+    {
+        return projectWeb;
+    }
+
+    public PrintWriter getReportWriter( final ValidationReport report )
+        throws IOException
+    {
+        final File reportsDir = new File( workspaceDirectory, "reports" );
+        if ( !reportsDir.isDirectory() && !reportsDir.mkdirs() )
+        {
+            throw new IOException( "Failed to create reports directory!" );
+        }
+
+        final String named = findNamed( report.getClass() );
+        if ( named == null )
+        {
+            throw new IOException( "Cannot find @Named annotation for: " + report.getClass()
+                                                                                 .getName() );
+        }
+
+        final File reportFile = new File( reportsDir, named );
+        return new PrintWriter( new FileWriter( reportFile ) );
     }
 
 }

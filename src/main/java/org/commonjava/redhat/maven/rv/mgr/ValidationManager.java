@@ -1,6 +1,7 @@
 package org.commonjava.redhat.maven.rv.mgr;
 
-import static org.commonjava.redhat.maven.rv.model.ArtifactReferenceUtils.toArtifactRef;
+import static org.commonjava.redhat.maven.rv.util.AnnotationUtils.findNamed;
+import static org.commonjava.redhat.maven.rv.util.ArtifactReferenceUtils.toArtifactRef;
 
 import java.io.File;
 import java.io.IOException;
@@ -8,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -28,7 +30,6 @@ import org.apache.maven.model.Model;
 import org.apache.maven.model.ModelBase;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginManagement;
-import org.apache.maven.model.Profile;
 import org.apache.maven.model.ReportPlugin;
 import org.apache.maven.model.Reporting;
 import org.apache.maven.model.building.DefaultModelBuildingRequest;
@@ -48,6 +49,7 @@ import org.apache.maven.repository.RepositorySystem;
 import org.codehaus.plexus.util.DirectoryScanner;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.commonjava.redhat.maven.rv.ValidationException;
+import org.commonjava.redhat.maven.rv.report.ValidationReport;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
 import org.commonjava.util.logging.Logger;
 
@@ -69,6 +71,9 @@ public class ValidationManager
 
     @Inject
     private SessionInitializer sessionInitializer;
+
+    @Inject
+    private Instance<ValidationReport> reports;
 
     public void validate( final ValidatorSession session )
         throws ValidationException
@@ -139,6 +144,38 @@ public class ValidationManager
         }
 
         // TODO: Report errors encountered and logged in session!
+        int reportsWritten = 0;
+        int reportsFailed = 0;
+        for ( final ValidationReport report : reports )
+        {
+            try
+            {
+                report.write( session );
+                reportsWritten++;
+            }
+            catch ( final IOException e )
+            {
+                logger.error( "Failed to write report: %s.\nError: %s", e, findNamed( report ), e.getMessage() );
+                reportsFailed++;
+            }
+            catch ( final ValidationException e )
+            {
+                logger.error( "Failed to write report: %s.\nError: %s", e, findNamed( report ), e.getMessage() );
+                reportsFailed++;
+            }
+        }
+
+        final long total = Runtime.getRuntime()
+                                  .totalMemory();
+        final long max = Runtime.getRuntime()
+                                .maxMemory();
+
+        final String totalMem = ( total / ( 1024 * 1024 ) ) + "M";
+        final String maxMem = ( max / ( 1024 * 1024 ) ) + "M";
+
+        logger.info( "\n\n\nSummary:\n-----------------\n  Processed %d POMs\n  %d Reports written\n  %d Reports failed!\n  Memory Usage: %s / %s\n\n",
+                     session.getSeen()
+                            .size(), reportsWritten, reportsFailed, totalMem, maxMem );
     }
 
     private ModelSource resolveModel( ProjectVersionRef ref, final ValidatorSession session )
@@ -311,32 +348,36 @@ public class ValidationManager
         validateBuild( model.getBuild(), session, src );
         validateReporting( model, session, src );
 
-        final List<Profile> profiles = model.getProfiles();
-        if ( profiles != null )
-        {
-            final Map<ProjectRef, Dependency> managed = new HashMap<ProjectRef, Dependency>();
-            if ( model.getDependencyManagement() != null && model.getDependencyManagement()
-                                                                 .getDependencies() != null )
-            {
-                for ( final Dependency d : model.getDependencyManagement()
-                                                .getDependencies() )
-                {
-                    final ProjectRef ref = new ProjectRef( d.getGroupId(), d.getArtifactId() );
-                    if ( !managed.containsKey( ref ) )
-                    {
-                        managed.put( ref, d );
-                    }
-                }
-            }
+        // FIXME: Not sure what to do with profiles. 
+        // I suspect checking them exhaustively will result in a lot of 
+        // irrelevant results...
 
-            for ( final Profile profile : profiles )
-            {
-                logger.info( "Validating profile: %s", profile.getId() );
-                validateDependencySections( profile, session, managed, src );
-                validateBuild( profile.getBuild(), session, src );
-                validateReporting( profile, session, src );
-            }
-        }
+        //        final List<Profile> profiles = model.getProfiles();
+        //        if ( profiles != null )
+        //        {
+        //            final Map<ProjectRef, Dependency> managed = new HashMap<ProjectRef, Dependency>();
+        //            if ( model.getDependencyManagement() != null && model.getDependencyManagement()
+        //                                                                 .getDependencies() != null )
+        //            {
+        //                for ( final Dependency d : model.getDependencyManagement()
+        //                                                .getDependencies() )
+        //                {
+        //                    final ProjectRef ref = new ProjectRef( d.getGroupId(), d.getArtifactId() );
+        //                    if ( !managed.containsKey( ref ) )
+        //                    {
+        //                        managed.put( ref, d );
+        //                    }
+        //                }
+        //            }
+        //
+        //            for ( final Profile profile : profiles )
+        //            {
+        //                logger.info( "Validating profile: %s", profile.getId() );
+        //                validateDependencySections( profile, session, managed, src );
+        //                validateBuild( profile.getBuild(), session, src );
+        //                validateReporting( profile, session, src );
+        //            }
+        //        }
     }
 
     private void validateDependencySections( final ModelBase model, final ValidatorSession session,
