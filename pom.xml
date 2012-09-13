@@ -7,6 +7,7 @@
   <version>0.1-SNAPSHOT</version>
 
   <name>Repository Validator</name>
+  <description>Tool that validates the internal consistency of a Maven artifact repository, and produces various reports about the health of its artifacts.</description>
 
   <developers>
     <developer>
@@ -47,6 +48,11 @@
         <filtering>false</filtering>
       </resource>
       <resource>
+        <directory>src/main/java-filtered</directory>
+        <filtering>true</filtering>
+        <targetPath>../generated-sources/filtered</targetPath>
+      </resource>
+      <resource>
         <directory>src/main/assembly</directory>
         <filtering>true</filtering>
         <targetPath>../generated-resources/assembly</targetPath>
@@ -65,7 +71,7 @@
             </goals>
             <configuration>
               <shortRevisionLength>7</shortRevisionLength>
-              <timestampFormat>{0,date,yyyyMMddHHmmZ}</timestampFormat>
+              <timestampFormat>{0,date,yyyy-MM-dd HH:mm Z}</timestampFormat>
             </configuration>
           </execution>
         </executions>
@@ -133,6 +139,25 @@
             </manifest>
           </archive>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>1.7</version>
+        <executions>
+          <execution>
+            <id>add-filtered-sources</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${project.build.directory}/generated-sources/filtered</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
     <pluginManagement>

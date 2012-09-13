@@ -29,6 +29,9 @@ public class CLI
     @Option( name = "-Z", aliases = { "--no-system-exit" }, usage = "Don't call System.exit(..) with the return value (for embedding/testing)." )
     private boolean noSystemExit;
 
+    @Option( name = "-v", aliases = { "-version", "--version" }, usage = "Print the version and quit." )
+    private boolean showVersion;
+
     public static void main( final String[] args )
     {
         final CLI cli = new CLI();
@@ -42,6 +45,13 @@ public class CLI
             if ( cli.help )
             {
                 printUsage( parser, null );
+            }
+            else if ( cli.showVersion )
+            {
+                final VersionInfo vi = new VersionInfo();
+                System.out.printf( "\n\n%s, version: %s\n\n%s\n\nBuilt by: %s\nOn: %s\nCommit ID: %s\n\n\n",
+                                   vi.APP_NAME, vi.APP_VERSION, vi.APP_DESCRIPTION, vi.APP_BUILDER, vi.APP_TIMESTAMP,
+                                   vi.APP_COMMIT_ID );
             }
             else
             {

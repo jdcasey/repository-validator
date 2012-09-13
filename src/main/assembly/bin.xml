@@ -5,7 +5,7 @@
     <format>zip</format>
     <format>dir</format>
   </formats>
-  <baseDirectory>${project.artifactId}-${timestamp}-${buildNumber}</baseDirectory>
+  <baseDirectory>${project.artifactId}-${buildNumber}</baseDirectory>
   <dependencySets>
     <dependencySet>
       <useProjectArtifact>false</useProjectArtifact>
