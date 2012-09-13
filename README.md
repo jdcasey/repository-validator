@@ -39,8 +39,6 @@ To run against a given repository directory, try: `/path/to/repository-validator
 
 ##Reports
 
-###Reporting Output
-
 All reports are available in the `${user.dir}/rv-workspace/reports/` directory.
 
 ###Per-Project Validity reports
