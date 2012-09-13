@@ -7,9 +7,9 @@ import javax.inject.Named;
 import org.apache.maven.graph.common.ref.ProjectVersionRef;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
 
-@Named( "missing-requires.txt" )
-public class MissingRequiresReport
-    extends RequiresReport
+@Named( "inverse-missing-requires.txt" )
+public class InverseMissingRequiresReport
+    extends InverseRequiresReport
 {
 
     @Override

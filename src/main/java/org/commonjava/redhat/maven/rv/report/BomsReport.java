@@ -1,8 +1,5 @@
 package org.commonjava.redhat.maven.rv.report;
 
-import static org.apache.commons.io.IOUtils.closeQuietly;
-
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,62 +11,35 @@ import javax.inject.Named;
 
 import org.apache.maven.graph.common.ref.ArtifactRef;
 import org.apache.maven.graph.common.ref.ProjectVersionRef;
-import org.apache.maven.graph.effective.EProjectWeb;
 import org.apache.maven.graph.effective.rel.DependencyRelationship;
 import org.apache.maven.graph.effective.rel.ProjectRelationship;
 import org.apache.maven.graph.effective.rel.RelationshipComparator;
-import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
 
 @Named( "boms.txt" )
 public class BomsReport
-    implements ValidationReport
+    extends AbstractRelationshipReport<DependencyRelationship>
 {
 
-    public void write( final ValidatorSession session )
-        throws IOException, ValidationException
+    @Override
+    protected void print( final DependencyRelationship rel, final PrintWriter writer, final ValidatorSession session )
     {
-        PrintWriter writer = null;
-        try
-        {
-            writer = session.getReportWriter( this );
+        final ArtifactRef target = rel.getTarget();
+        final boolean pomMissing = session.isMissing( target.asProjectVersionRef() );
+        final boolean artMissing = session.isMissing( target );
 
-            final EProjectWeb web = session.getProjectWeb();
-
-            final Set<ProjectVersionRef> boms = session.getBoms();
-            for ( final ProjectVersionRef bom : boms )
-            {
-                final Set<ProjectRelationship<?>> rels = web.getDirectRelationships( bom );
-                final List<DependencyRelationship> digested = filterAndSort( rels );
-
-                writer.printf( "\n\n%s:\n-------------------------------------------------\n", bom );
-
-                if ( !digested.isEmpty() )
-                {
-                    for ( final DependencyRelationship rel : digested )
-                    {
-                        final ArtifactRef target = rel.getTarget();
-                        final boolean pomMissing = session.isMissing( target.asProjectVersionRef() );
-                        final boolean artMissing = session.isMissing( target );
-
-                        writer.printf( "\n  %d. %s (scope: %s)\n    POM:      %s\n    Artifact: %s", rel.getIndex(),
-                                       target, rel.getScope(), ( pomMissing ? "MISSING" : "OK" ),
-                                       ( artMissing ? "MISSING" : "OK" ) );
-                    }
-                }
-                else
-                {
-                    writer.print( "  NONE" );
-                }
-            }
-        }
-        finally
-        {
-            closeQuietly( writer );
-        }
+        writer.printf( "\n  %d. %s (scope: %s)\n    POM:      %s\n    Artifact: %s", rel.getIndex(), target,
+                       rel.getScope(), ( pomMissing ? "MISSING" : "OK" ), ( artMissing ? "MISSING" : "OK" ) );
     }
 
-    private List<DependencyRelationship> filterAndSort( final Set<ProjectRelationship<?>> rels )
+    @Override
+    protected Set<ProjectVersionRef> getProjectReferences( final ValidatorSession session )
+    {
+        return session.getBoms();
+    }
+
+    @Override
+    protected Set<DependencyRelationship> filter( final Set<ProjectRelationship<?>> rels )
     {
         final Set<DependencyRelationship> filtered = new HashSet<DependencyRelationship>();
 
@@ -84,7 +54,12 @@ public class BomsReport
                 }
             }
         }
+        return filtered;
+    }
 
+    @Override
+    protected List<DependencyRelationship> sort( final Set<DependencyRelationship> filtered )
+    {
         final List<DependencyRelationship> sorted = new ArrayList<DependencyRelationship>( filtered );
         Collections.sort( sorted, new RelationshipComparator() );
 

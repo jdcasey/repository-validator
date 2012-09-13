@@ -41,7 +41,54 @@
   </properties>
   
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+      </resource>
+      <resource>
+        <directory>src/main/assembly</directory>
+        <filtering>true</filtering>
+        <targetPath>../generated-resources/assembly</targetPath>
+      </resource>
+    </resources>
     <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>buildnumber-maven-plugin</artifactId>
+        <version>1.1</version>
+        <executions>
+          <execution>
+            <id>buildnumbers</id>
+            <goals>
+              <goal>create</goal>
+            </goals>
+            <configuration>
+              <shortRevisionLength>7</shortRevisionLength>
+              <timestampFormat>{0,date,yyyyMMddHHmmZ}</timestampFormat>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>2.3</version>
+        <executions>
+          <execution>
+            <id>bin</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <descriptors>
+                <descriptor>${project.build.directory}/generated-resources/assembly/bin.xml</descriptor>
+              </descriptors>
+              <tarLongFileMode>gnu</tarLongFileMode>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <artifactId>maven-dependency-plugin</artifactId>
         <executions>

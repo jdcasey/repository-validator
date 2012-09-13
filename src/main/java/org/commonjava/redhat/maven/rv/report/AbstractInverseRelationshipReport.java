@@ -22,7 +22,7 @@ import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
 import org.commonjava.redhat.maven.rv.util.RelationshipDeclarationComparator;
 
-public abstract class AbstractUsageReport
+public abstract class AbstractInverseRelationshipReport
     implements ValidationReport
 {
 
