@@ -484,6 +484,13 @@ public class ValidationManager
         logger.info( "Validating project references for: %s", model );
 
         final ProjectVersionRef src = toArtifactRef( model, session );
+        if ( src == null )
+        {
+            logger.error( "Model '%s' has an invalid version, or otherwise cannot used to create a ProjectVersionRef.",
+                          model );
+            return;
+        }
+
         validateDependencySections( model, session, src );
         validateBuild( model.getBuild(), session, src );
         validateReporting( model, session, src );
