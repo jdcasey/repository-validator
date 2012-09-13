@@ -1,5 +1,12 @@
 package org.commonjava.redhat.maven.rv;
 
+import static org.commonjava.redhat.maven.rv.VersionInfo.APP_BUILDER;
+import static org.commonjava.redhat.maven.rv.VersionInfo.APP_COMMIT_ID;
+import static org.commonjava.redhat.maven.rv.VersionInfo.APP_DESCRIPTION;
+import static org.commonjava.redhat.maven.rv.VersionInfo.APP_NAME;
+import static org.commonjava.redhat.maven.rv.VersionInfo.APP_TIMESTAMP;
+import static org.commonjava.redhat.maven.rv.VersionInfo.APP_VERSION;
+
 import java.io.File;
 
 import org.commonjava.redhat.maven.rv.mgr.ValidationManager;
@@ -48,10 +55,8 @@ public class CLI
             }
             else if ( cli.showVersion )
             {
-                final VersionInfo vi = new VersionInfo();
-                System.out.printf( "\n\n%s, version: %s\n\n%s\n\nBuilt by: %s\nOn: %s\nCommit ID: %s\n\n\n",
-                                   vi.APP_NAME, vi.APP_VERSION, vi.APP_DESCRIPTION, vi.APP_BUILDER, vi.APP_TIMESTAMP,
-                                   vi.APP_COMMIT_ID );
+                System.out.printf( "\n\n%s, version: %s\n\n%s\n\nBuilt by: %s\nOn: %s\nCommit ID: %s\n\n\n", APP_NAME,
+                                   APP_VERSION, APP_DESCRIPTION, APP_BUILDER, APP_TIMESTAMP, APP_COMMIT_ID );
             }
             else
             {

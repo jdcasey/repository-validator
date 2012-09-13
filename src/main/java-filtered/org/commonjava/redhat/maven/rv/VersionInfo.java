@@ -1,7 +1,9 @@
 package org.commonjava.redhat.maven.rv;
 
-public class VersionInfo
+public final class VersionInfo
 {
+    
+    private VersionInfo(){}
     
     public static final String APP_NAME = "@project.name@";
     public static final String APP_DESCRIPTION = "@project.description@";
