@@ -168,6 +168,11 @@ public class ValidatorSession
 
     public void addSeen( final ProjectVersionRef id )
     {
+        if ( id == null )
+        {
+            return;
+        }
+
         //        logger.info( "Attempting to add seen project: %s", id );
         seen.add( id );
         //        logger.info( "Added? %s", added );
@@ -178,6 +183,11 @@ public class ValidatorSession
 
     public void addMissing( final ProjectVersionRef id )
     {
+        if ( id == null )
+        {
+            return;
+        }
+
         //        logger.info( "Attempting to add missing project: %s", id );
         missing.add( id );
         //        logger.info( "Added? %s", added );

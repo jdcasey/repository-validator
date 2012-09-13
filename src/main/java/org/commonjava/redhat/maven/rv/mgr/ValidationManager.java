@@ -122,6 +122,12 @@ public class ValidationManager
                     logger.error( "Failed to write report: %s.\nError: %s", e, named, e.getMessage() );
                     reportsFailed++;
                 }
+                // just to be safe...
+                catch ( final Error e )
+                {
+                    logger.error( "Failed to write report: %s.\nError: %s", e, named, e.getMessage() );
+                    reportsFailed++;
+                }
             }
 
             final long total = Runtime.getRuntime()

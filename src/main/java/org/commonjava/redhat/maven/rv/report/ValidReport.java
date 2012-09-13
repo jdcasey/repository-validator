@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -32,6 +33,15 @@ public class ValidReport
 
             final Set<ProjectVersionRef> valid = session.getSeen();
             valid.removeAll( session.getMissing() );
+
+            for ( final Iterator<ProjectVersionRef> iterator = valid.iterator(); iterator.hasNext(); )
+            {
+                final ProjectVersionRef ref = iterator.next();
+                if ( ref == null )
+                {
+                    iterator.remove();
+                }
+            }
 
             final List<ProjectVersionRef> validList = new ArrayList<ProjectVersionRef>( valid );
             Collections.sort( validList, new ToStringComparator<ProjectVersionRef>() );
