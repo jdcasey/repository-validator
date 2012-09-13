@@ -4,6 +4,7 @@ import javax.annotation.PostConstruct;
 import javax.enterprise.inject.Produces;
 import javax.inject.Singleton;
 
+import org.apache.maven.artifact.repository.metadata.RepositoryMetadataManager;
 import org.apache.maven.mae.MAEException;
 import org.apache.maven.mae.app.AbstractMAEApplication;
 import org.apache.maven.mae.project.session.SessionInitializer;
@@ -29,6 +30,9 @@ public class MavenComponentProvider
     private PluginVersionResolver pluginVersionResolver;
 
     @Requirement
+    private RepositoryMetadataManager repositoryMetadataManager;
+
+    @Requirement
     private SessionInitializer sessionInitializer;
 
     @PostConstruct
@@ -36,6 +40,12 @@ public class MavenComponentProvider
         throws MAEException
     {
         load();
+    }
+
+    @Produces
+    public RepositoryMetadataManager getRepositoryMetadataManager()
+    {
+        return repositoryMetadataManager;
     }
 
     @Produces

@@ -7,10 +7,13 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.inject.Named;
 
+import org.apache.maven.graph.common.ref.ArtifactRef;
 import org.apache.maven.graph.common.ref.ProjectVersionRef;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
@@ -29,8 +32,7 @@ public class MissingReport
         {
             writer = session.getReportWriter( this );
 
-            final List<ProjectVersionRef> list = new ArrayList<ProjectVersionRef>( session.getMissing() );
-            Collections.sort( list, new ToStringComparator<ProjectVersionRef>() );
+            final List<ProjectVersionRef> list = filterAndSort( session.getMissing() );
 
             writer.printf( join( list, "\n" ) );
         }
@@ -38,6 +40,25 @@ public class MissingReport
         {
             closeQuietly( writer );
         }
+    }
+
+    private List<ProjectVersionRef> filterAndSort( final Set<ProjectVersionRef> missing )
+    {
+        final Set<ProjectVersionRef> filtered = new HashSet<ProjectVersionRef>();
+        for ( final ProjectVersionRef ref : missing )
+        {
+            if ( ref instanceof ArtifactRef )
+            {
+                continue;
+            }
+
+            filtered.add( ref );
+        }
+
+        final List<ProjectVersionRef> list = new ArrayList<ProjectVersionRef>( filtered );
+        Collections.sort( list, new ToStringComparator<ProjectVersionRef>() );
+
+        return list;
     }
 
 }

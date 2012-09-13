@@ -6,12 +6,20 @@ import static org.commonjava.redhat.maven.rv.util.ArtifactReferenceUtils.toArtif
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.repository.DefaultRepositoryRequest;
+import org.apache.maven.artifact.repository.metadata.ArtifactRepositoryMetadata;
+import org.apache.maven.artifact.repository.metadata.Metadata;
+import org.apache.maven.artifact.repository.metadata.RepositoryMetadataManager;
+import org.apache.maven.artifact.repository.metadata.RepositoryMetadataResolutionException;
+import org.apache.maven.artifact.repository.metadata.Versioning;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
 import org.apache.maven.graph.common.DependencyScope;
@@ -19,6 +27,8 @@ import org.apache.maven.graph.common.ref.ArtifactRef;
 import org.apache.maven.graph.common.ref.ProjectRef;
 import org.apache.maven.graph.common.ref.ProjectVersionRef;
 import org.apache.maven.graph.common.version.InvalidVersionSpecificationException;
+import org.apache.maven.graph.common.version.VersionSpec;
+import org.apache.maven.graph.common.version.VersionUtils;
 import org.apache.maven.mae.project.session.SessionInitializer;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.BuildBase;
@@ -64,6 +74,9 @@ public class ValidationManager
 
     @Inject
     private PluginVersionResolver pluginVersionResolver;
+
+    @Inject
+    private RepositoryMetadataManager repoMetadataManager;
 
     @Inject
     private RepositorySystem repoSystem;
@@ -197,6 +210,16 @@ public class ValidationManager
             ref = ( (ArtifactRef) ref ).asProjectVersionRef();
         }
 
+        if ( ref.isCompound() )
+        {
+            ref = resolveVersionRange( ref, session );
+
+            if ( ref == null )
+            {
+                return null;
+            }
+        }
+
         if ( session.isMissing( ref ) )
         {
             logger.info( "%s is already marked as missing. Skipping.", ref );
@@ -227,6 +250,66 @@ public class ValidationManager
         }
 
         return source;
+    }
+
+    private ProjectVersionRef resolveVersionRange( final ProjectVersionRef ref, final ValidatorSession session )
+    {
+        final VersionSpec versionSpec = ref.getVersionSpec();
+        final Artifact dummy = repoSystem.createProjectArtifact( ref.getGroupId(), ref.getArtifactId(), "1" );
+        final ArtifactRepositoryMetadata mdWrapper = new ArtifactRepositoryMetadata( dummy );
+
+        final DefaultRepositoryRequest drr = new DefaultRepositoryRequest( session.getBaseArtifactResolutionRequest() );
+        VersionSpec resolved = null;
+        try
+        {
+            repoMetadataManager.resolve( mdWrapper, drr );
+
+            final Metadata metadata = mdWrapper.getMetadata();
+            final Versioning versioning = metadata.getVersioning();
+            if ( versioning != null )
+            {
+                final List<VersionSpec> versions = new ArrayList<VersionSpec>();
+                for ( final String v : versioning.getVersions() )
+                {
+                    try
+                    {
+                        final VersionSpec ver = VersionUtils.createSingleVersion( v );
+                        versions.add( ver );
+                    }
+                    catch ( final InvalidVersionSpecificationException e )
+                    {
+                        logger.warn( "Invalid version encountered: '%s' while resolving range: %s in POM reference: %s. Reason: %s\n\nSkipping it...\n\n",
+                                     e, v, versionSpec.renderStandard(), ref, e.getMessage() );
+                    }
+                }
+
+                Collections.sort( versions );
+                Collections.reverse( versions );
+                for ( final VersionSpec version : versions )
+                {
+                    if ( versionSpec.contains( version ) )
+                    {
+                        resolved = version;
+                        break;
+                    }
+                }
+            }
+
+        }
+        catch ( final RepositoryMetadataResolutionException e )
+        {
+            logger.error( "Failed to resolve versions for range: %s in POM reference: %s. Reason: %s", e, versionSpec,
+                          ref, e.getMessage() );
+            session.addModelError( ref, e );
+            session.addVersionResolutionFailure( ref );
+        }
+
+        if ( resolved == null )
+        {
+            session.addVersionResolutionFailure( ref );
+        }
+
+        return resolved == null ? null : new ProjectVersionRef( ref.getGroupId(), ref.getArtifactId(), resolved );
     }
 
     private Model buildModel( final File pomFile, final ValidatorSession session )
@@ -375,6 +458,7 @@ public class ValidationManager
 
     private void resolveArtifact( final ArtifactRef ref, final ValidatorSession session )
     {
+        logger.info( "Resolving: %s", ref );
         final ArtifactResolutionRequest req =
             new ArtifactResolutionRequest( session.getBaseArtifactResolutionRequest() );
 
@@ -511,6 +595,23 @@ public class ValidationManager
                         logger.info( "Resolving version for: %s", ref );
                         ref = resolvePluginVersion( ref, session, src );
                     }
+                    else if ( ( (ProjectVersionRef) ref ).isCompound() )
+                    {
+                        final ProjectVersionRef projectRef = resolveVersionRange( (ProjectVersionRef) ref, session );
+
+                        if ( projectRef == null )
+                        {
+                            //                            logger.info( "Failed to resolve version for range: %s in plugin: %s of: %s",
+                            //                                         ( (ProjectVersionRef) ref ).getVersionSpec()
+                            //                                                                    .renderStandard(), ref, src );
+                            session.addMissing( (ProjectVersionRef) ref );
+                            continue;
+                        }
+                        else
+                        {
+                            ref = projectRef;
+                        }
+                    }
 
                     if ( ref != null )
                     {
@@ -548,6 +649,23 @@ public class ValidationManager
                 {
                     logger.info( "Resolving version for: %s", ref );
                     ref = resolvePluginVersion( ref, session, src );
+                }
+                else if ( ( (ProjectVersionRef) ref ).isCompound() )
+                {
+                    final ProjectVersionRef projectRef = resolveVersionRange( (ProjectVersionRef) ref, session );
+
+                    if ( projectRef == null )
+                    {
+                        //                        logger.info( "Failed to resolve version for range: %s in plugin: %s of: %s",
+                        //                                     ( (ProjectVersionRef) ref ).getVersionSpec()
+                        //                                                                .renderStandard(), ref, src );
+                        session.addMissing( (ProjectVersionRef) ref );
+                        continue;
+                    }
+                    else
+                    {
+                        ref = projectRef;
+                    }
                 }
 
                 if ( ref != null )
@@ -605,10 +723,28 @@ public class ValidationManager
             {
                 //                logger.info( "[DEP] %s", dependency );
 
-                final ArtifactRef ref = toArtifactRef( dependency, src, session );
+                ArtifactRef ref = toArtifactRef( dependency, src, session );
                 if ( ref == null )
                 {
                     continue;
+                }
+
+                if ( ref.isCompound() )
+                {
+                    final ProjectVersionRef projectRef = resolveVersionRange( ref, session );
+
+                    if ( projectRef == null )
+                    {
+                        //                        logger.info( "Failed to resolve version for range: %s in dependency: %s of: %s",
+                        //                                     ref.getVersionSpec()
+                        //                                        .renderStandard(), ref, src );
+                        session.addMissing( ref );
+                        continue;
+                    }
+                    else
+                    {
+                        ref = new ArtifactRef( projectRef, ref.getType(), ref.getClassifier(), ref.isOptional() );
+                    }
                 }
 
                 if ( session.hasSeen( ref.asProjectVersionRef() ) )
@@ -710,6 +846,8 @@ public class ValidationManager
                                                                "Failed to parse version: '%s'\nPlugin: %s\nPOM: %s\nReason: %s",
                                                                e, version, ref, src, e.getMessage() ) );
         }
+
+        session.addVersionResolutionFailure( ref );
 
         return null;
     }

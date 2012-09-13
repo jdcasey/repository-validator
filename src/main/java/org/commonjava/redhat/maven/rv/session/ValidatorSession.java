@@ -20,6 +20,7 @@ import org.apache.maven.artifact.InvalidRepositoryException;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.graph.common.DependencyScope;
 import org.apache.maven.graph.common.ref.ArtifactRef;
+import org.apache.maven.graph.common.ref.ProjectRef;
 import org.apache.maven.graph.common.ref.ProjectVersionRef;
 import org.apache.maven.graph.effective.EProjectWeb;
 import org.apache.maven.graph.effective.rel.DependencyRelationship;
@@ -29,7 +30,6 @@ import org.apache.maven.graph.effective.rel.PluginRelationship;
 import org.apache.maven.mae.project.ProjectToolsException;
 import org.apache.maven.mae.project.session.SessionInitializer;
 import org.apache.maven.mae.project.session.SimpleProjectToolsSession;
-import org.apache.maven.model.Model;
 import org.apache.maven.model.Repository;
 import org.apache.maven.model.building.DefaultModelBuildingRequest;
 import org.apache.maven.model.building.ModelBuildingRequest;
@@ -80,9 +80,7 @@ public class ValidatorSession
 
     private LinkedList<ArtifactRef> typesToResolve = new LinkedList<ArtifactRef>();
 
-    private LinkedList<Model> rawModels = new LinkedList<Model>();
-
-    private Set<String> seenRawModels = new HashSet<String>();
+    private Set<ProjectRef> versionResolutionFailures = new HashSet<ProjectRef>();
 
     public static final class Builder
     {
@@ -170,7 +168,9 @@ public class ValidatorSession
 
     public void addSeen( final ProjectVersionRef id )
     {
+        //        logger.info( "Attempting to add seen project: %s", id );
         seen.add( id );
+        //        logger.info( "Added? %s", added );
         //        logger.info( "Has %s[toString=%s, hashCode=%s] been marked seen? %b", id.getClass()
         //                                                                                .getName(), id, id.hashCode(),
         //                     seen.contains( id ) );
@@ -178,7 +178,9 @@ public class ValidatorSession
 
     public void addMissing( final ProjectVersionRef id )
     {
+        //        logger.info( "Attempting to add missing project: %s", id );
         missing.add( id );
+        //        logger.info( "Added? %s", added );
         //        logger.info( "Has %s[toString=%s, hashCode=%s] been marked missing? %b", id.getClass()
         //                                                                                   .getName(), id, id.hashCode(),
         //                     missing.contains( id ) );
@@ -242,7 +244,9 @@ public class ValidatorSession
         throws ValidationException
     {
         final Repository repo = new Repository();
-        repo.setId( "validation-target" );
+        repo.setId( "central" );
+        repo.setName( "Validation Target (not really central)" );
+
         try
         {
             repo.setUrl( repositoryDirectory.toURI()
@@ -274,6 +278,7 @@ public class ValidatorSession
         baseModelBuildingRequest.setValidationLevel( ModelBuildingRequest.VALIDATION_LEVEL_MAVEN_3_0 );
 
         baseArtifactResolutionRequest = new ArtifactResolutionRequest();
+        baseArtifactResolutionRequest.setRemoteRepositories( projectSession.getArtifactRepositoriesForResolution() );
 
         final File localRepo = new File( workspaceDirectory, "local-repo" );
         try
@@ -428,19 +433,14 @@ public class ValidatorSession
         return new PrintWriter( new FileWriter( reportFile ) );
     }
 
-    public void addRawModel( final Model raw )
+    public void addVersionResolutionFailure( final ProjectRef ref )
     {
-        final String id = raw.getId();
-        if ( !seenRawModels.contains( id ) )
-        {
-            rawModels.addLast( raw );
-            seenRawModels.add( id );
-        }
+        versionResolutionFailures.add( ref );
     }
 
-    public Model getNextRawModel()
+    public Set<ProjectRef> getVersionResolutionFailures()
     {
-        return rawModels.isEmpty() ? null : rawModels.removeFirst();
+        return new HashSet<ProjectRef>( versionResolutionFailures );
     }
 
 }

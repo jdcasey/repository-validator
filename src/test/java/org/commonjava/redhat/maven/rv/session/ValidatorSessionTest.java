@@ -30,4 +30,21 @@ public class ValidatorSessionTest
         assertThat( session.isMissing( ref ), equalTo( true ) );
     }
 
+    @Test
+    public void addIdenticalRefsToMissingThenVerifyOnlyOneAdded()
+        throws InvalidVersionSpecificationException
+    {
+        final ValidatorSession session = new ValidatorSession.Builder( null, null ).build();
+        session.addMissing( new ProjectVersionRef( "isorelax", "isorelax", "20050331" ) );
+
+        final ProjectVersionRef ref = new ProjectVersionRef( "isorelax", "isorelax", "20050331" );
+        assertThat( session.isMissing( ref ), equalTo( true ) );
+
+        session.addMissing( ref );
+        assertThat( session.getMissing()
+                           .size(), equalTo( 1 ) );
+        assertThat( session.getSeen()
+                           .size(), equalTo( 1 ) );
+    }
+
 }
