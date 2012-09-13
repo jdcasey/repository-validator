@@ -29,6 +29,7 @@ import org.apache.maven.graph.effective.rel.PluginRelationship;
 import org.apache.maven.mae.project.ProjectToolsException;
 import org.apache.maven.mae.project.session.SessionInitializer;
 import org.apache.maven.mae.project.session.SimpleProjectToolsSession;
+import org.apache.maven.model.Model;
 import org.apache.maven.model.Repository;
 import org.apache.maven.model.building.DefaultModelBuildingRequest;
 import org.apache.maven.model.building.ModelBuildingRequest;
@@ -51,6 +52,8 @@ public class ValidatorSession
     private final File repositoryDirectory;
 
     private final File workspaceDirectory;
+
+    private final Set<ProjectVersionRef> boms = new HashSet<ProjectVersionRef>();
 
     private final Map<ProjectVersionRef, Set<ModelProblem>> modelProblems =
         new HashMap<ProjectVersionRef, Set<ModelProblem>>();
@@ -76,6 +79,10 @@ public class ValidatorSession
     private LinkedList<ProjectVersionRef> projectsToResolve = new LinkedList<ProjectVersionRef>();
 
     private LinkedList<ArtifactRef> typesToResolve = new LinkedList<ArtifactRef>();
+
+    private LinkedList<Model> rawModels = new LinkedList<Model>();
+
+    private Set<String> seenRawModels = new HashSet<String>();
 
     public static final class Builder
     {
@@ -131,6 +138,16 @@ public class ValidatorSession
     public String[] getPomExcludes()
     {
         return pomExcludes.toArray( new String[] {} );
+    }
+
+    public void addBom( final ProjectVersionRef ref )
+    {
+        boms.add( ref );
+    }
+
+    public Set<ProjectVersionRef> getBoms()
+    {
+        return boms;
     }
 
     public boolean isMissing( final ProjectVersionRef id )
@@ -409,6 +426,21 @@ public class ValidatorSession
 
         final File reportFile = new File( reportsDir, named );
         return new PrintWriter( new FileWriter( reportFile ) );
+    }
+
+    public void addRawModel( final Model raw )
+    {
+        final String id = raw.getId();
+        if ( !seenRawModels.contains( id ) )
+        {
+            rawModels.addLast( raw );
+            seenRawModels.add( id );
+        }
+    }
+
+    public Model getNextRawModel()
+    {
+        return rawModels.isEmpty() ? null : rawModels.removeFirst();
     }
 
 }

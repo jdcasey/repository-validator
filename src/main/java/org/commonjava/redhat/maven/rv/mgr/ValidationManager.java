@@ -5,9 +5,8 @@ import static org.commonjava.redhat.maven.rv.util.ArtifactReferenceUtils.toArtif
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
@@ -80,6 +79,59 @@ public class ValidationManager
     {
         session.initializeMavenComponents( sessionInitializer, repoSystem );
 
+        processPomFiles( session );
+        processReferencedArtifacts( session );
+
+        logger.info( "Writing reports..." );
+        // TODO: Report errors encountered and logged in session!
+        int reportsWritten = 0;
+        int reportsFailed = 0;
+        for ( final ValidationReport report : reports )
+        {
+            final String named = findNamed( report );
+            logger.info( "...writing %s", named );
+
+            try
+            {
+                report.write( session );
+                reportsWritten++;
+            }
+            catch ( final IOException e )
+            {
+                logger.error( "Failed to write report: %s.\nError: %s", e, named, e.getMessage() );
+                reportsFailed++;
+            }
+            catch ( final ValidationException e )
+            {
+                logger.error( "Failed to write report: %s.\nError: %s", e, named, e.getMessage() );
+                reportsFailed++;
+            }
+        }
+
+        final long total = Runtime.getRuntime()
+                                  .totalMemory();
+        final long max = Runtime.getRuntime()
+                                .maxMemory();
+
+        final String totalMem = ( total / ( 1024 * 1024 ) ) + "M";
+        final String maxMem = ( max / ( 1024 * 1024 ) ) + "M";
+
+        logger.info( "\n\n\nSummary:\n-----------------\n  Processed %d POMs\n  %d Reports written\n  %d Reports failed!\n  Memory Usage: %s / %s\n\n",
+                     session.getSeen()
+                            .size(), reportsWritten, reportsFailed, totalMem, maxMem );
+    }
+
+    private void processReferencedArtifacts( final ValidatorSession session )
+    {
+        ArtifactRef artiRef = null;
+        while ( ( artiRef = session.getNextArtifactToResolve() ) != null )
+        {
+            resolveArtifact( artiRef, session );
+        }
+    }
+
+    private void processPomFiles( final ValidatorSession session )
+    {
         final File repositoryDir = session.getRepositoryDirectory();
 
         final DirectoryScanner scanner = new DirectoryScanner();
@@ -136,46 +188,6 @@ public class ValidationManager
 
             validateProjectGraph( model, session );
         }
-
-        ArtifactRef artiRef = null;
-        while ( ( artiRef = session.getNextArtifactToResolve() ) != null )
-        {
-            resolveArtifact( artiRef, session );
-        }
-
-        // TODO: Report errors encountered and logged in session!
-        int reportsWritten = 0;
-        int reportsFailed = 0;
-        for ( final ValidationReport report : reports )
-        {
-            try
-            {
-                report.write( session );
-                reportsWritten++;
-            }
-            catch ( final IOException e )
-            {
-                logger.error( "Failed to write report: %s.\nError: %s", e, findNamed( report ), e.getMessage() );
-                reportsFailed++;
-            }
-            catch ( final ValidationException e )
-            {
-                logger.error( "Failed to write report: %s.\nError: %s", e, findNamed( report ), e.getMessage() );
-                reportsFailed++;
-            }
-        }
-
-        final long total = Runtime.getRuntime()
-                                  .totalMemory();
-        final long max = Runtime.getRuntime()
-                                .maxMemory();
-
-        final String totalMem = ( total / ( 1024 * 1024 ) ) + "M";
-        final String maxMem = ( max / ( 1024 * 1024 ) ) + "M";
-
-        logger.info( "\n\n\nSummary:\n-----------------\n  Processed %d POMs\n  %d Reports written\n  %d Reports failed!\n  Memory Usage: %s / %s\n\n",
-                     session.getSeen()
-                            .size(), reportsWritten, reportsFailed, totalMem, maxMem );
     }
 
     private ModelSource resolveModel( ProjectVersionRef ref, final ValidatorSession session )
@@ -232,18 +244,20 @@ public class ValidationManager
                                                                                     .setModelResolver( session.getModelResolver() );
 
         Model model = null;
+        Model raw = null;
         ProjectVersionRef ref = null;
         try
         {
             final ModelBuildingResult result = modelBuilder.build( mbr );
             model = result.getEffectiveModel();
+            raw = result.getRawModel();
 
             if ( model == null )
             {
-                final Model mdl = readRawModel( source, session );
-                if ( mdl != null )
+                raw = readRawModel( source, session );
+                if ( raw != null )
                 {
-                    ref = toArtifactRef( mdl, session );
+                    ref = toArtifactRef( raw, session );
                 }
             }
             else
@@ -265,10 +279,10 @@ public class ValidationManager
         }
         catch ( final ModelBuildingException e )
         {
-            final Model mdl = readRawModel( source, session );
-            if ( mdl != null )
+            raw = readRawModel( source, session );
+            if ( raw != null )
             {
-                ref = toArtifactRef( mdl, session );
+                ref = toArtifactRef( raw, session );
             }
 
             if ( ref != null )
@@ -292,6 +306,48 @@ public class ValidationManager
         if ( model != null )
         {
             session.addSeen( toArtifactRef( model, session ) );
+        }
+
+        if ( raw != null )
+        {
+            logger.info( "Looking for BOM imports in raw model: %s", ref );
+
+            // We have to process import-scoped deps from the raw model, 
+            // since BOM references are REPLACED by their dependencyManagement contents
+            // when the model is loaded, making them invisible once the effective
+            // model is computed.
+            if ( raw.getDependencyManagement() != null && raw.getDependencyManagement()
+                                                             .getDependencies() != null )
+            {
+                final List<Dependency> extraToValidate = new ArrayList<Dependency>();
+
+                final List<Dependency> managed = raw.getDependencyManagement()
+                                                    .getDependencies();
+                for ( final Dependency dep : managed )
+                {
+                    if ( "import".equals( dep.getScope() ) && "pom".equals( dep.getType() ) )
+                    {
+                        final ArtifactRef depRef = toArtifactRef( dep, ref, session );
+                        if ( depRef == null )
+                        {
+                            logger.error( "Cannot add BOM reference for %s. Error occurred while constructing artifact reference",
+                                          dep );
+                            continue;
+                        }
+
+                        logger.info( "Adding BOM reference: %s", depRef );
+
+                        session.addBom( depRef.asProjectVersionRef() );
+
+                        extraToValidate.add( dep );
+                    }
+                }
+
+                if ( !extraToValidate.isEmpty() )
+                {
+                    validateDependencies( extraToValidate, session, true, ref );
+                }
+            }
         }
 
         return model;
@@ -344,7 +400,7 @@ public class ValidationManager
         logger.info( "Validating project references for: %s", model );
 
         final ProjectVersionRef src = toArtifactRef( model, session );
-        validateDependencySections( model, session, null, src );
+        validateDependencySections( model, session, src );
         validateBuild( model.getBuild(), session, src );
         validateReporting( model, session, src );
 
@@ -381,49 +437,22 @@ public class ValidationManager
     }
 
     private void validateDependencySections( final ModelBase model, final ValidatorSession session,
-                                             final Map<ProjectRef, Dependency> inheritedManaged,
                                              final ProjectVersionRef src )
     {
-        final Map<ProjectRef, Dependency> managed = new HashMap<ProjectRef, Dependency>();
-        if ( model.getDependencyManagement() != null && model.getDependencyManagement()
-                                                             .getDependencies() != null )
-        {
-            for ( final Dependency d : model.getDependencyManagement()
-                                            .getDependencies() )
-            {
-                final ProjectRef ref = new ProjectRef( d.getGroupId(), d.getArtifactId() );
-                if ( !managed.containsKey( ref ) )
-                {
-                    managed.put( ref, d );
-                }
-            }
-        }
-
-        if ( inheritedManaged != null )
-        {
-            for ( final Map.Entry<ProjectRef, Dependency> entry : inheritedManaged.entrySet() )
-            {
-                if ( !managed.containsKey( entry.getKey() ) )
-                {
-                    managed.put( entry.getKey(), entry.getValue() );
-                }
-            }
-        }
-
         final DependencyManagement dm = model.getDependencyManagement();
         if ( dm != null )
         {
             final List<Dependency> deps = dm.getDependencies();
             if ( deps != null )
             {
-                validateDependencies( deps, session, null, true, src );
+                validateDependencies( deps, session, true, src );
             }
         }
 
         final List<Dependency> deps = model.getDependencies();
         if ( deps != null )
         {
-            validateDependencies( deps, session, managed, false, src );
+            validateDependencies( deps, session, false, src );
         }
     }
 
@@ -566,8 +595,7 @@ public class ValidationManager
     }
 
     private void validateDependencies( final List<Dependency> deps, final ValidatorSession session,
-                                       final Map<ProjectRef, Dependency> managedInfo, final boolean managed,
-                                       final ProjectVersionRef src )
+                                       final boolean managed, final ProjectVersionRef src )
     {
         //        logger.info( "Validating dependencies: %s", src );
         if ( deps != null )
@@ -576,27 +604,6 @@ public class ValidationManager
             for ( final Dependency dependency : deps )
             {
                 //                logger.info( "[DEP] %s", dependency );
-
-                final ProjectRef r = new ProjectRef( dependency.getGroupId(), dependency.getArtifactId() );
-                final Dependency mgd = managedInfo == null ? null : managedInfo.get( r );
-
-                if ( mgd != null )
-                {
-                    if ( dependency.getVersion() == null && mgd.getVersion() != null )
-                    {
-                        dependency.setVersion( mgd.getVersion() );
-                    }
-
-                    if ( dependency.getScope() == null && mgd.getScope() != null )
-                    {
-                        dependency.setScope( mgd.getScope() );
-                    }
-
-                    if ( dependency.getExclusions() == null && mgd.getExclusions() != null )
-                    {
-                        dependency.setExclusions( mgd.getExclusions() );
-                    }
-                }
 
                 final ArtifactRef ref = toArtifactRef( dependency, src, session );
                 if ( ref == null )

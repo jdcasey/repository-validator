@@ -11,9 +11,12 @@ import org.apache.maven.model.Plugin;
 import org.apache.maven.model.ReportPlugin;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
+import org.commonjava.util.logging.Logger;
 
 public final class ArtifactReferenceUtils
 {
+
+    private static final Logger logger = new Logger( ArtifactReferenceUtils.class );
 
     private ArtifactReferenceUtils()
     {
@@ -25,19 +28,22 @@ public final class ArtifactReferenceUtils
         try
         {
             String group = model.getGroupId();
-            if (group == null)
+            if ( group == null )
             {
-                group = model.getParent().getGroupId();
+                group = model.getParent()
+                             .getGroupId();
             }
             String version = model.getVersion();
-            if(version == null)
+            if ( version == null )
             {
-                version = model.getParent().getVersion();
+                version = model.getParent()
+                               .getVersion();
             }
             ref = new ProjectVersionRef( group, model.getArtifactId(), version );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
+            logger.error( "Cannot parse version for %s. Reason: %s", e, model, e.getMessage() );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s. Reason: %s", e, model,
                                                                e.getMessage() ) );
         }
@@ -55,6 +61,7 @@ public final class ArtifactReferenceUtils
         }
         catch ( final InvalidVersionSpecificationException e )
         {
+            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, ext, src, e.getMessage() );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                ext, src, e.getMessage() ) );
         }
@@ -74,6 +81,7 @@ public final class ArtifactReferenceUtils
         }
         catch ( final IllegalArgumentException e )
         {
+            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
             if ( dep.getVersion() == null )
             {
                 session.addLowLevelError( new ValidationException( "Missing version for: %s in %s. Reason: %s", e, dep,
@@ -82,6 +90,7 @@ public final class ArtifactReferenceUtils
         }
         catch ( final InvalidVersionSpecificationException e )
         {
+            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                dep, src, e.getMessage() ) );
         }
@@ -113,6 +122,7 @@ public final class ArtifactReferenceUtils
             }
             catch ( final InvalidVersionSpecificationException e )
             {
+                logger.error( "Cannot parse version for %s in %s. Reason: %s", e, plugin, src, e.getMessage() );
                 session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                    plugin, src, e.getMessage() ) );
             }
@@ -137,6 +147,7 @@ public final class ArtifactReferenceUtils
             }
             catch ( final InvalidVersionSpecificationException e )
             {
+                logger.error( "Cannot parse version for %s in %s. Reason: %s", e, plugin, src, e.getMessage() );
                 session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                    plugin, src, e.getMessage() ) );
             }

@@ -18,7 +18,7 @@ import org.commonjava.redhat.maven.rv.session.ValidatorSession;
 import org.commonjava.redhat.maven.rv.util.ToStringComparator;
 
 @Named( "valid.txt" )
-public class ValidatedReport
+public class ValidReport
     implements ValidationReport
 {
 
