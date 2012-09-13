@@ -90,48 +90,63 @@ public class ValidationManager
     public void validate( final ValidatorSession session )
         throws ValidationException
     {
-        session.initializeMavenComponents( sessionInitializer, repoSystem );
-
-        processPomFiles( session );
-        processReferencedArtifacts( session );
-
-        logger.info( "Writing reports..." );
-        // TODO: Report errors encountered and logged in session!
-        int reportsWritten = 0;
-        int reportsFailed = 0;
-        for ( final ValidationReport report : reports )
+        final long start = System.currentTimeMillis();
+        try
         {
-            final String named = findNamed( report );
-            logger.info( "...writing %s", named );
+            session.initializeMavenComponents( sessionInitializer, repoSystem );
 
+            processPomFiles( session );
+            processReferencedArtifacts( session );
+
+            logger.info( "Writing reports..." );
+            // TODO: Report errors encountered and logged in session!
+            int reportsWritten = 0;
+            int reportsFailed = 0;
+            for ( final ValidationReport report : reports )
+            {
+                final String named = findNamed( report );
+                logger.info( "...writing %s", named );
+
+                try
+                {
+                    report.write( session );
+                    reportsWritten++;
+                }
+                catch ( final IOException e )
+                {
+                    logger.error( "Failed to write report: %s.\nError: %s", e, named, e.getMessage() );
+                    reportsFailed++;
+                }
+                catch ( final ValidationException e )
+                {
+                    logger.error( "Failed to write report: %s.\nError: %s", e, named, e.getMessage() );
+                    reportsFailed++;
+                }
+            }
+
+            final long total = Runtime.getRuntime()
+                                      .totalMemory();
+            final long max = Runtime.getRuntime()
+                                    .maxMemory();
+
+            final String totalMem = ( total / ( 1024 * 1024 ) ) + "M";
+            final String maxMem = ( max / ( 1024 * 1024 ) ) + "M";
+
+            logger.info( "\n\n\nSummary:\n-----------------\n  Processed %d POMs\n  %d Reports written\n  %d Reports failed!\n  Memory Usage: %s / %s\n\n",
+                         session.getSeen()
+                                .size(), reportsWritten, reportsFailed, totalMem, maxMem );
+        }
+        finally
+        {
             try
             {
-                report.write( session );
-                reportsWritten++;
+                logger.info( "\n\nElapsed time for validation attempt: %dms\n\n", ( System.currentTimeMillis() - start ) );
             }
-            catch ( final IOException e )
+            catch ( final Error e )
             {
-                logger.error( "Failed to write report: %s.\nError: %s", e, named, e.getMessage() );
-                reportsFailed++;
-            }
-            catch ( final ValidationException e )
-            {
-                logger.error( "Failed to write report: %s.\nError: %s", e, named, e.getMessage() );
-                reportsFailed++;
+                e.printStackTrace();
             }
         }
-
-        final long total = Runtime.getRuntime()
-                                  .totalMemory();
-        final long max = Runtime.getRuntime()
-                                .maxMemory();
-
-        final String totalMem = ( total / ( 1024 * 1024 ) ) + "M";
-        final String maxMem = ( max / ( 1024 * 1024 ) ) + "M";
-
-        logger.info( "\n\n\nSummary:\n-----------------\n  Processed %d POMs\n  %d Reports written\n  %d Reports failed!\n  Memory Usage: %s / %s\n\n",
-                     session.getSeen()
-                            .size(), reportsWritten, reportsFailed, totalMem, maxMem );
     }
 
     private void processReferencedArtifacts( final ValidatorSession session )
@@ -391,7 +406,7 @@ public class ValidationManager
             session.addSeen( toArtifactRef( model, session ) );
         }
 
-        if ( raw != null )
+        if ( raw != null && ref != null )
         {
             logger.info( "Looking for BOM imports in raw model: %s", ref );
 
