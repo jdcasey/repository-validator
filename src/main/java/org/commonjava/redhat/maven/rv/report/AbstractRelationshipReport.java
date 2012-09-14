@@ -41,10 +41,6 @@ public abstract class AbstractRelationshipReport<T extends ProjectRelationship<?
                         print( rel, writer, session );
                     }
                 }
-                else
-                {
-                    writer.print( "  NONE" );
-                }
             }
         }
         finally
