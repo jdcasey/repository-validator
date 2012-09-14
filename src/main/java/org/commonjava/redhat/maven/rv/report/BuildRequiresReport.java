@@ -54,7 +54,7 @@ public class BuildRequiresReport
     @Override
     protected Set<ProjectVersionRef> getProjectReferences( final ValidatorSession session )
     {
-        return session.getBoms();
+        return session.getSeen();
     }
 
     @Override

@@ -32,10 +32,10 @@ public abstract class AbstractRelationshipReport<T extends ProjectRelationship<?
                 final Set<T> rels = filter( web.getDirectRelationships( ref ) );
                 final List<T> digested = sort( rels );
 
-                writer.printf( "\n\n%s:\n-------------------------------------------------\n", ref );
-
                 if ( !digested.isEmpty() )
                 {
+                    writer.printf( "\n\n%s:\n-------------------------------------------------\n", ref );
+
                     for ( final T rel : digested )
                     {
                         print( rel, writer, session );

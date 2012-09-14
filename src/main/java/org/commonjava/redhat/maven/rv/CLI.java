@@ -8,6 +8,7 @@ import static org.commonjava.redhat.maven.rv.VersionInfo.APP_TIMESTAMP;
 import static org.commonjava.redhat.maven.rv.VersionInfo.APP_VERSION;
 
 import java.io.File;
+import java.util.concurrent.TimeUnit;
 
 import org.commonjava.redhat.maven.rv.mgr.ValidationManager;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
@@ -83,14 +84,45 @@ public class CLI
     public void run()
         throws ValidationException
     {
-        final ValidatorSession session =
-            new ValidatorSession.Builder( repository, workspace ).withPomExcludes( pomExcludePattern )
-                                                                 .build();
-        new Weld().initialize()
-                  .instance()
-                  .select( ValidationManager.class )
-                  .get()
-                  .validate( session );
+        final long start = System.currentTimeMillis();
+        try
+        {
+            final ValidatorSession session =
+                new ValidatorSession.Builder( repository, workspace ).withPomExcludes( pomExcludePattern )
+                                                                     .build();
+            new Weld().initialize()
+                      .instance()
+                      .select( ValidationManager.class )
+                      .get()
+                      .validate( session );
+        }
+        finally
+        {
+            try
+            {
+                final long elapsed = System.currentTimeMillis() - start;
+
+                final long hr = TimeUnit.MILLISECONDS.toHours( elapsed );
+
+                final long min = TimeUnit.MILLISECONDS.toMinutes( elapsed - TimeUnit.HOURS.toMillis( hr ) );
+
+                final long sec =
+                    TimeUnit.MILLISECONDS.toSeconds( elapsed - TimeUnit.HOURS.toMillis( hr )
+                        - TimeUnit.MINUTES.toMillis( min ) );
+
+                final long ms =
+                    TimeUnit.MILLISECONDS.toMillis( elapsed - TimeUnit.HOURS.toMillis( hr )
+                        - TimeUnit.MINUTES.toMillis( min ) - TimeUnit.SECONDS.toMillis( sec ) );
+
+                final String elapsedInterval = String.format( "%02d:%02d:%02d.%03d", hr, min, sec, ms );
+
+                System.out.printf( "\n\nElapsed time for validation attempt: %s\n\n", elapsedInterval );
+            }
+            catch ( final Error e )
+            {
+                e.printStackTrace();
+            }
+        }
     }
 
     private static void printUsage( final CmdLineParser parser, final Exception error )
