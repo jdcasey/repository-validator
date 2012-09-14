@@ -4,6 +4,7 @@ import static org.apache.commons.io.IOUtils.closeQuietly;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -40,6 +41,11 @@ public class ModelErrorsProblemsReport
                 final Set<Exception> modelErrors = errors.get( ref );
                 final Set<ModelProblem> modelProblems = problems.get( ref );
 
+                if ( isEmpty( modelErrors ) && isEmpty( modelProblems ) )
+                {
+                    continue;
+                }
+
                 writer.printf( "\n%s:\n----------------------\n\nProblems:", ref );
                 if ( modelProblems != null )
                 {
@@ -75,6 +81,11 @@ public class ModelErrorsProblemsReport
         {
             closeQuietly( writer );
         }
+    }
+
+    private boolean isEmpty( final Collection<?> collection )
+    {
+        return collection == null || collection.isEmpty();
     }
 
 }
