@@ -29,7 +29,7 @@ public class ModelErrorsProblemsReport
         {
             writer = session.getReportWriter( this );
 
-            final Map<ProjectVersionRef, Set<Exception>> errors = session.getModelErrors();
+            final Map<ProjectVersionRef, Set<Exception>> errors = session.getErrorsByRef();
             final Map<ProjectVersionRef, Set<ModelProblem>> problems = session.getModelProblems();
 
             final Set<ProjectVersionRef> refs = new HashSet<ProjectVersionRef>();

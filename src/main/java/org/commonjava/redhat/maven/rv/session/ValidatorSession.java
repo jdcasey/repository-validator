@@ -53,12 +53,14 @@ public class ValidatorSession
 
     private final File workspaceDirectory;
 
+    private final File reportsDirectory;
+
     private final Set<ProjectVersionRef> boms = new HashSet<ProjectVersionRef>();
 
     private final Map<ProjectVersionRef, Set<ModelProblem>> modelProblems =
         new HashMap<ProjectVersionRef, Set<ModelProblem>>();
 
-    private final Map<ProjectVersionRef, Set<Exception>> modelErrors = new HashMap<ProjectVersionRef, Set<Exception>>();
+    private final Map<ProjectVersionRef, Set<Exception>> errorsByRef = new HashMap<ProjectVersionRef, Set<Exception>>();
 
     private final Set<ProjectVersionRef> seen = new HashSet<ProjectVersionRef>();
 
@@ -88,12 +90,20 @@ public class ValidatorSession
 
         private final File workspaceDirectory;
 
+        private File reportsDirectory;
+
         private Set<String> pomExcludes = new HashSet<String>();
 
         public Builder( final File repositoryDirectory, final File workspaceDirectory )
         {
             this.repositoryDirectory = repositoryDirectory;
             this.workspaceDirectory = workspaceDirectory;
+        }
+
+        public Builder withReportsDirectory( final File reportsDirectory )
+        {
+            this.reportsDirectory = reportsDirectory;
+            return this;
         }
 
         public Builder withPomExcludes( final String... excludes )
@@ -121,15 +131,22 @@ public class ValidatorSession
 
         public ValidatorSession build()
         {
-            return new ValidatorSession( repositoryDirectory, workspaceDirectory, pomExcludes );
+            File reports = reportsDirectory;
+            if ( reportsDirectory == null )
+            {
+                reports = new File( workspaceDirectory, "reports" );
+            }
+
+            return new ValidatorSession( repositoryDirectory, workspaceDirectory, reports, pomExcludes );
         }
     }
 
     private ValidatorSession( final File repositoryDirectory, final File workspaceDirectory,
-                              final Set<String> pomExcludes )
+                              final File reportsDirectory, final Set<String> pomExcludes )
     {
         this.repositoryDirectory = repositoryDirectory;
         this.workspaceDirectory = workspaceDirectory;
+        this.reportsDirectory = reportsDirectory;
         this.pomExcludes = Collections.unmodifiableSet( pomExcludes );
     }
 
@@ -211,17 +228,17 @@ public class ValidatorSession
         problems.add( problem );
     }
 
-    public void addModelError( final ProjectVersionRef src, final Exception error )
+    public void addError( final ProjectVersionRef src, final Exception error )
     {
         //        logger.error( "ERROR in: %s was: %s", src, error );
-        Set<Exception> errors = modelErrors.get( src );
-        if ( errors == null )
+        Set<Exception> projectErrors = errorsByRef.get( src );
+        if ( projectErrors == null )
         {
-            errors = new HashSet<Exception>();
-            modelErrors.put( src, errors );
+            projectErrors = new HashSet<Exception>();
+            errorsByRef.put( src, projectErrors );
         }
 
-        errors.add( error );
+        projectErrors.add( error );
     }
 
     public File getRepositoryDirectory()
@@ -398,9 +415,9 @@ public class ValidatorSession
         return modelProblems;
     }
 
-    public final Map<ProjectVersionRef, Set<Exception>> getModelErrors()
+    public final Map<ProjectVersionRef, Set<Exception>> getErrorsByRef()
     {
-        return modelErrors;
+        return errorsByRef;
     }
 
     public final Set<ProjectVersionRef> getSeen()
@@ -426,8 +443,7 @@ public class ValidatorSession
     public PrintWriter getReportWriter( final ValidationReport report )
         throws IOException
     {
-        final File reportsDir = new File( workspaceDirectory, "reports" );
-        if ( !reportsDir.isDirectory() && !reportsDir.mkdirs() )
+        if ( !reportsDirectory.isDirectory() && !reportsDirectory.mkdirs() )
         {
             throw new IOException( "Failed to create reports directory!" );
         }
@@ -439,7 +455,7 @@ public class ValidatorSession
                                                                                  .getName() );
         }
 
-        final File reportFile = new File( reportsDir, named );
+        final File reportFile = new File( reportsDirectory, named );
         return new PrintWriter( new FileWriter( reportFile ) );
     }
 

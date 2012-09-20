@@ -31,10 +31,13 @@ public class CLI
     @Option( name = "-h", aliases = { "--help" }, usage = "Print this message and quit" )
     private boolean help = false;
 
-    @Option( name = "-W", aliases = { "--workspace" }, usage = "Backup original files here up before modifying.\nDefault: rv-workspace" )
+    @Option( name = "-W", aliases = { "--workspace" }, usage = "Location where output should be written, temp files cached, etc.\nDefault: rv-workspace" )
     private File workspace = new File( USER_DIR, "rv-workspace" );
 
-    @Option( name = "-Z", aliases = { "--no-system-exit" }, usage = "Don't call System.exit(..) with the return value (for embedding/testing)." )
+    @Option( name = "-R", aliases = { "--reports" }, usage = "Write reports here.\nDefault: rv-workspace/reports" )
+    private File reports;
+
+    @Option( name = "-Z", aliases = { "--no-system-exit" }, usage = "Don't call System.exit(..) (for embedding/testing)." )
     private boolean noSystemExit;
 
     @Option( name = "-v", aliases = { "-version", "--version" }, usage = "Print the version and quit." )
@@ -88,7 +91,8 @@ public class CLI
         try
         {
             final ValidatorSession session =
-                new ValidatorSession.Builder( repository, workspace ).withPomExcludes( pomExcludePattern )
+                new ValidatorSession.Builder( repository, workspace ).withReportsDirectory( reports )
+                                                                     .withPomExcludes( pomExcludePattern )
                                                                      .build();
             new Weld().initialize()
                       .instance()

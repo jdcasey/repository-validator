@@ -248,7 +248,7 @@ public class ValidationManager
         catch ( final UnresolvableModelException e )
         {
             logger.info( "Failed to resolve: %s, Error was: %s", e, ref, e.getMessage() );
-            session.addModelError( ref, e );
+            session.addError( ref, e );
 
             logger.info( "Marking missing: %s[%s]", ref.getClass()
                                                        .getName(), ref );
@@ -306,7 +306,7 @@ public class ValidationManager
         {
             logger.error( "Failed to resolve versions for range: %s in POM reference: %s. Reason: %s", e, versionSpec,
                           ref, e.getMessage() );
-            session.addModelError( ref, e );
+            session.addError( ref, e );
             session.addVersionResolutionFailure( ref );
         }
 
@@ -475,12 +475,12 @@ public class ValidationManager
         final ArtifactResolutionResult result = repoSystem.resolve( req );
 
         final List<Exception> exceptions = result.getExceptions();
-        if ( exceptions != null )
+        if ( exceptions != null && !exceptions.isEmpty() )
         {
             session.addMissing( ref );
             for ( final Exception exception : exceptions )
             {
-                session.addModelError( ref.asProjectVersionRef(), exception );
+                session.addError( ref.asProjectVersionRef(), exception );
             }
         }
     }
@@ -851,7 +851,7 @@ public class ValidationManager
         }
         catch ( final PluginVersionResolutionException e )
         {
-            session.addModelError( src, e );
+            session.addError( src, e );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
