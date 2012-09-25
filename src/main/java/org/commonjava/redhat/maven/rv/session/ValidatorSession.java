@@ -25,6 +25,7 @@ import org.apache.maven.graph.common.ref.ProjectVersionRef;
 import org.apache.maven.graph.effective.EProjectWeb;
 import org.apache.maven.graph.effective.rel.DependencyRelationship;
 import org.apache.maven.graph.effective.rel.ExtensionRelationship;
+import org.apache.maven.graph.effective.rel.ParentRelationship;
 import org.apache.maven.graph.effective.rel.PluginDependencyRelationship;
 import org.apache.maven.graph.effective.rel.PluginRelationship;
 import org.apache.maven.mae.project.ProjectToolsException;
@@ -332,6 +333,11 @@ public class ValidatorSession
     public void addLowLevelError( final Exception error )
     {
         lowLevelErrors.add( error );
+    }
+
+    public void addParentLink( final ProjectVersionRef ref, final ProjectVersionRef parentRef )
+    {
+        projectWeb.add( new ParentRelationship( ref, parentRef ) );
     }
 
     public void addPluginLink( final ProjectVersionRef src, final ProjectVersionRef ref, final int index,

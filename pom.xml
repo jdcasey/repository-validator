@@ -21,9 +21,9 @@
   </developers>
   
   <scm>
-    <url>http://github.com/jdcasey/pom-version-manipulator</url>
-    <connection>scm:git:http://github.com/jdcasey/pom-version-manipulator.git</connection>
-    <developerConnection>scm:git:git@github.com:jdcasey/pom-version-manipulator.git</developerConnection>
+    <url>http://github.com/jdcasey/repository-validator</url>
+    <connection>scm:git:http://github.com/jdcasey/repository-validator.git</connection>
+    <developerConnection>scm:git:git@github.com:jdcasey/repository-validator.git</developerConnection>
   </scm>
   
   <licenses>

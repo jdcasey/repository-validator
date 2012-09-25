@@ -7,6 +7,7 @@ import org.apache.maven.graph.common.version.InvalidVersionSpecificationExceptio
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Extension;
 import org.apache.maven.model.Model;
+import org.apache.maven.model.Parent;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.ReportPlugin;
 import org.commonjava.redhat.maven.rv.ValidationException;
@@ -24,22 +25,30 @@ public final class ArtifactReferenceUtils
 
     public static ProjectVersionRef toArtifactRef( final Model model, final ValidatorSession session )
     {
-        ProjectVersionRef ref = null;
         try
         {
             String group = model.getGroupId();
-            if ( group == null )
+            final Parent parent = model.getParent();
+            if ( group == null && parent != null )
             {
-                group = model.getParent()
-                             .getGroupId();
+                group = parent.getGroupId();
             }
             String version = model.getVersion();
-            if ( version == null )
+            if ( version == null && parent != null )
             {
-                version = model.getParent()
-                               .getVersion();
+                version = parent.getVersion();
             }
-            ref = new ProjectVersionRef( group, model.getArtifactId(), version );
+
+            if ( group == null || version == null )
+            {
+                logger.error( "Invalid POM: %s:%s:%s", group, model.getArtifactId(), version );
+                session.addLowLevelError( new ValidationException(
+                                                                   "Invalid POM coordinate (missing information): %s:%s:%s.",
+                                                                   group, model.getArtifactId(), version ) );
+                return null;
+            }
+
+            return new ProjectVersionRef( group, model.getArtifactId(), version );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
@@ -54,7 +63,23 @@ public final class ArtifactReferenceUtils
         //                                                               e.getMessage() ) );
         //        }
 
-        return ref;
+        return null;
+    }
+
+    public static ProjectVersionRef toArtifactRef( final Parent parent, final ValidatorSession session )
+    {
+        try
+        {
+            return new ProjectVersionRef( parent.getGroupId(), parent.getArtifactId(), parent.getVersion() );
+        }
+        catch ( final InvalidVersionSpecificationException e )
+        {
+            logger.error( "Cannot parse version for %s. Reason: %s", e, parent, e.getMessage() );
+            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s. Reason: %s", e, parent,
+                                                               e.getMessage() ) );
+        }
+
+        return null;
     }
 
     public static ProjectVersionRef toArtifactRef( final Extension ext, final ProjectVersionRef src,

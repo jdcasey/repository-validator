@@ -37,6 +37,7 @@ import org.apache.maven.model.DependencyManagement;
 import org.apache.maven.model.Extension;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.ModelBase;
+import org.apache.maven.model.Parent;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginManagement;
 import org.apache.maven.model.ReportPlugin;
@@ -399,6 +400,13 @@ public class ValidationManager
 
         if ( raw != null && ref != null )
         {
+            final Parent parent = raw.getParent();
+            if ( parent != null )
+            {
+                final ProjectVersionRef parentRef = toArtifactRef( parent, session );
+                session.addParentLink( ref, parentRef );
+            }
+
             logger.info( "Looking for BOM imports in raw model: %s", ref );
 
             // We have to process import-scoped deps from the raw model, 
