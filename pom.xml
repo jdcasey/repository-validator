@@ -9,7 +9,7 @@
   
   <groupId>org.commonjava.redhat.maven</groupId>
   <artifactId>repository-validator</artifactId>
-  <version>0.1</version>
+  <version>0.2-SNAPSHOT</version>
 
   <name>Repository Validator</name>
   <description>${project.name} checks the internal consistency of a Maven artifact repository and produces various reports about the health of its artifacts.</description>
