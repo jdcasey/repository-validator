@@ -265,8 +265,8 @@
     </dependency>
     <dependency>
       <groupId>org.commonjava.maven</groupId>
-      <artifactId>maven-atlas</artifactId>
-      <version>0.1.0-SNAPSHOT</version>
+      <artifactId>atlas</artifactId>
+      <version>0.1.0</version>
     </dependency>
   </dependencies>
 </project>
