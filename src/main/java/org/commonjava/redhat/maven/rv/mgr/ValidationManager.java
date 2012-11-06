@@ -11,7 +11,6 @@ import java.util.List;
 
 import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
-import javax.inject.Singleton;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.DefaultRepositoryRequest;
@@ -63,7 +62,7 @@ import org.commonjava.redhat.maven.rv.report.ValidationReport;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
 import org.commonjava.util.logging.Logger;
 
-@Singleton
+@javax.enterprise.context.ApplicationScoped
 public class ValidationManager
 {
     private static final String[] POM_INCLUDES = { "**/*.pom", "**/pom.xml" };
