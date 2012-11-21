@@ -11,6 +11,7 @@ import java.util.List;
 
 import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
+import javax.inject.Singleton;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.DefaultRepositoryRequest;
@@ -28,7 +29,6 @@ import org.apache.maven.graph.common.ref.ProjectVersionRef;
 import org.apache.maven.graph.common.version.InvalidVersionSpecificationException;
 import org.apache.maven.graph.common.version.VersionSpec;
 import org.apache.maven.graph.common.version.VersionUtils;
-import org.apache.maven.mae.project.session.SessionInitializer;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.BuildBase;
 import org.apache.maven.model.Dependency;
@@ -45,6 +45,7 @@ import org.apache.maven.model.building.DefaultModelBuildingRequest;
 import org.apache.maven.model.building.FileModelSource;
 import org.apache.maven.model.building.ModelBuilder;
 import org.apache.maven.model.building.ModelBuildingException;
+import org.apache.maven.model.building.ModelBuildingRequest;
 import org.apache.maven.model.building.ModelBuildingResult;
 import org.apache.maven.model.building.ModelProblem;
 import org.apache.maven.model.building.ModelSource;
@@ -58,11 +59,12 @@ import org.apache.maven.repository.RepositorySystem;
 import org.codehaus.plexus.util.DirectoryScanner;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.commonjava.redhat.maven.rv.ValidationException;
+import org.commonjava.redhat.maven.rv.comp.MavenComponentManager;
 import org.commonjava.redhat.maven.rv.report.ValidationReport;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
 import org.commonjava.util.logging.Logger;
 
-@javax.enterprise.context.ApplicationScoped
+@Singleton
 public class ValidationManager
 {
     private static final String[] POM_INCLUDES = { "**/*.pom", "**/pom.xml" };
@@ -82,7 +84,7 @@ public class ValidationManager
     private RepositorySystem repoSystem;
 
     @Inject
-    private SessionInitializer sessionInitializer;
+    private MavenComponentManager mavenComponentManager;
 
     @Inject
     private Instance<ValidationReport> reports;
@@ -90,7 +92,7 @@ public class ValidationManager
     public void validate( final ValidatorSession session )
         throws ValidationException
     {
-        session.initializeMavenComponents( sessionInitializer, repoSystem );
+        session.initializeMavenComponents( mavenComponentManager );
 
         processPomFiles( session );
         processReferencedArtifacts( session );
@@ -332,6 +334,9 @@ public class ValidationManager
             new DefaultModelBuildingRequest( session.getBaseModelBuildingRequest() ).setModelSource( source )
                                                                                     .setModelResolver( session.getModelResolver() );
 
+        // FIXME: Which level ignores deployed status in distMgmt??
+        mbr.setValidationLevel( ModelBuildingRequest.VALIDATION_LEVEL_MAVEN_3_0 );
+
         Model model = null;
         Model raw = null;
         ProjectVersionRef ref = null;
@@ -480,6 +485,8 @@ public class ValidationManager
                                                     ref.getType() ) );
 
         final ArtifactResolutionResult result = repoSystem.resolve( req );
+
+        // TODO: Log repository from which this was resolved!
 
         final List<Exception> exceptions = result.getExceptions();
         if ( exceptions != null && !exceptions.isEmpty() )

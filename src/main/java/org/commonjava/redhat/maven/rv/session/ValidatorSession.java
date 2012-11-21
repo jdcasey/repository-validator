@@ -1,12 +1,14 @@
 package org.commonjava.redhat.maven.rv.session;
 
 import static org.commonjava.redhat.maven.rv.util.AnnotationUtils.findNamed;
+import static org.commonjava.redhat.maven.rv.util.InputUtils.getFile;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -18,6 +20,7 @@ import java.util.Set;
 
 import org.apache.maven.artifact.InvalidRepositoryException;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
+import org.apache.maven.execution.MavenExecutionRequestPopulationException;
 import org.apache.maven.graph.common.DependencyScope;
 import org.apache.maven.graph.common.ref.ArtifactRef;
 import org.apache.maven.graph.common.ref.ProjectRef;
@@ -29,22 +32,32 @@ import org.apache.maven.graph.effective.rel.ParentRelationship;
 import org.apache.maven.graph.effective.rel.PluginDependencyRelationship;
 import org.apache.maven.graph.effective.rel.PluginRelationship;
 import org.apache.maven.mae.project.ProjectToolsException;
-import org.apache.maven.mae.project.session.SessionInitializer;
 import org.apache.maven.mae.project.session.SimpleProjectToolsSession;
 import org.apache.maven.model.Repository;
 import org.apache.maven.model.building.DefaultModelBuildingRequest;
 import org.apache.maven.model.building.ModelBuildingRequest;
 import org.apache.maven.model.building.ModelProblem;
 import org.apache.maven.model.resolution.ModelResolver;
-import org.apache.maven.repository.RepositorySystem;
+import org.apache.maven.settings.building.SettingsBuildingException;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.comp.DirModelResolver;
+import org.commonjava.redhat.maven.rv.comp.MavenComponentManager;
 import org.commonjava.redhat.maven.rv.report.ValidationReport;
 import org.sonatype.aether.RepositorySystemSession;
 import org.sonatype.aether.repository.RemoteRepository;
 
 public class ValidatorSession
 {
+
+    private static final Set<String> CENTRAL_URL_ALIASES = new HashSet<String>()
+    {
+        {
+            add( "http://repo.maven.apache.org/maven2" );
+            add( "http://repo1.maven.org/maven2" );
+        }
+
+        private static final long serialVersionUID = 1L;
+    };
 
     //    private final Logger logger = new Logger( getClass() );
 
@@ -55,6 +68,8 @@ public class ValidatorSession
     private final File workspaceDirectory;
 
     private final File reportsDirectory;
+
+    private final File downloadsDirectory;
 
     private final Set<ProjectVersionRef> boms = new HashSet<ProjectVersionRef>();
 
@@ -85,15 +100,25 @@ public class ValidatorSession
 
     private Set<ProjectRef> versionResolutionFailures = new HashSet<ProjectRef>();
 
+    private String settingsXmlPath;
+
+    private List<String> remoteRepoUrls;
+
     public static final class Builder
     {
         private final File repositoryDirectory;
 
         private final File workspaceDirectory;
 
+        private File downloadsDirectory;
+
         private File reportsDirectory;
 
         private Set<String> pomExcludes = new HashSet<String>();
+
+        private String settingsXml;
+
+        private List<String> remoteRepos;
 
         public Builder( final File repositoryDirectory, final File workspaceDirectory )
         {
@@ -104,6 +129,12 @@ public class ValidatorSession
         public Builder withReportsDirectory( final File reportsDirectory )
         {
             this.reportsDirectory = reportsDirectory;
+            return this;
+        }
+
+        public Builder withDownloadsDirectory( final File downloadsDirectory )
+        {
+            this.downloadsDirectory = downloadsDirectory;
             return this;
         }
 
@@ -138,17 +169,50 @@ public class ValidatorSession
                 reports = new File( workspaceDirectory, "reports" );
             }
 
-            return new ValidatorSession( repositoryDirectory, workspaceDirectory, reports, pomExcludes );
+            File downloads = downloadsDirectory;
+            if ( downloads == null )
+            {
+                downloads = new File( workspaceDirectory, "downloads" );
+            }
+
+            return new ValidatorSession( remoteRepos, settingsXml, repositoryDirectory, workspaceDirectory, reports,
+                                         downloads, pomExcludes );
+        }
+
+        public Builder withSettingsXmlPath( final String settingsXml )
+        {
+            this.settingsXml = settingsXml;
+            return this;
+        }
+
+        public Builder withRemoteRepositoryUrls( final List<String> remoteRepos )
+        {
+            this.remoteRepos = remoteRepos;
+            return this;
         }
     }
 
-    private ValidatorSession( final File repositoryDirectory, final File workspaceDirectory,
-                              final File reportsDirectory, final Set<String> pomExcludes )
+    private ValidatorSession( final List<String> remoteRepos, final String settingsXml, final File repositoryDirectory,
+                              final File workspaceDirectory, final File reportsDirectory,
+                              final File downloadsDirectory, final Set<String> pomExcludes )
     {
+        this.remoteRepoUrls = remoteRepos;
+        this.settingsXmlPath = settingsXml;
         this.repositoryDirectory = repositoryDirectory;
         this.workspaceDirectory = workspaceDirectory;
         this.reportsDirectory = reportsDirectory;
+        this.downloadsDirectory = downloadsDirectory;
         this.pomExcludes = Collections.unmodifiableSet( pomExcludes );
+    }
+
+    public List<String> getRemoteRepositoryUrls()
+    {
+        return remoteRepoUrls;
+    }
+
+    public String getSettingsXmlPath()
+    {
+        return settingsXmlPath;
     }
 
     public String[] getPomExcludes()
@@ -267,13 +331,54 @@ public class ValidatorSession
         return baseArtifactResolutionRequest;
     }
 
-    public void initializeMavenComponents( final SessionInitializer sessionInitializer,
-                                           final RepositorySystem repoSystem )
+    public void initializeMavenComponents( final MavenComponentManager mavenManager )
         throws ValidationException
     {
+        final List<Repository> repos = new ArrayList<Repository>();
+        boolean hasCentral = false;
+        if ( remoteRepoUrls != null )
+        {
+            for ( String url : remoteRepoUrls )
+            {
+                if ( url.endsWith( "/" ) )
+                {
+                    url = url.substring( 0, url.length() - 1 );
+                }
+
+                URL u;
+                try
+                {
+                    u = new URL( url );
+                }
+                catch ( final MalformedURLException e )
+                {
+                    throw new ValidationException( "Invalid remote repository URL: '%s'. Reason: %s", e, url,
+                                                   e.getMessage() );
+                }
+
+                final Repository repo = new Repository();
+                repo.setUrl( url );
+
+                repo.setId( u.getHost() );
+                if ( CENTRAL_URL_ALIASES.contains( url ) )
+                {
+                    repo.setId( "central" );
+                    hasCentral = true;
+                }
+
+                repos.add( repo );
+            }
+        }
+
         final Repository repo = new Repository();
-        repo.setId( "central" );
-        repo.setName( "Validation Target (not really central)" );
+        if ( hasCentral )
+        {
+            repo.setId( "repo-validator-target" );
+        }
+        else
+        {
+            repo.setId( "central" );
+        }
 
         try
         {
@@ -287,11 +392,33 @@ public class ValidatorSession
                                            repositoryDirectory, e.getMessage() );
         }
 
-        projectSession.setResolveRepositories( repo );
+        // put this one up front, so we prefer it.
+        repos.add( 0, repo );
+
+        projectSession.setResolveRepositories( repos.toArray( new Repository[] {} ) );
+
+        if ( settingsXmlPath != null )
+        {
+            final File settingsXml = getFile( settingsXmlPath, downloadsDirectory );
+            try
+            {
+                mavenManager.configureFromSettings( projectSession, settingsXml );
+            }
+            catch ( final SettingsBuildingException e )
+            {
+                throw new ValidationException( "Failed to initialize Maven components for project-building: %s", e,
+                                               e.getMessage() );
+            }
+            catch ( final MavenExecutionRequestPopulationException e )
+            {
+                throw new ValidationException( "Failed to initialize Maven components for project-building: %s", e,
+                                               e.getMessage() );
+            }
+        }
 
         try
         {
-            sessionInitializer.initializeSessionComponents( projectSession );
+            mavenManager.initializeSessionComponents( projectSession );
         }
         catch ( final ProjectToolsException e )
         {
@@ -311,7 +438,7 @@ public class ValidatorSession
         final File localRepo = new File( workspaceDirectory, "local-repo" );
         try
         {
-            baseArtifactResolutionRequest.setLocalRepository( repoSystem.createLocalRepository( localRepo ) );
+            baseArtifactResolutionRequest.setLocalRepository( mavenManager.createLocalRepository( localRepo ) );
         }
         catch ( final InvalidRepositoryException e )
         {

@@ -8,6 +8,7 @@ import static org.commonjava.redhat.maven.rv.VersionInfo.APP_TIMESTAMP;
 import static org.commonjava.redhat.maven.rv.VersionInfo.APP_VERSION;
 
 import java.io.File;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.commonjava.redhat.maven.rv.mgr.ValidationManager;
@@ -42,6 +43,12 @@ public class CLI
 
     @Option( name = "-v", aliases = { "-version", "--version" }, usage = "Print the version and quit." )
     private boolean showVersion;
+
+    @Option( name = "-s", aliases = { "--settings" }, usage = "Settings.xml used to specify server authentications for use in artifact resolution" )
+    private String settingsXml;
+
+    @Option( name = "-r", aliases = { "--remote-repository" }, usage = "Remote repository URL to use in resolving dependencies, plugins, etc. (specify more than once to use multiple remotes)", multiValued = true )
+    private List<String> remoteRepositories;
 
     public static void main( final String[] args )
     {
@@ -93,6 +100,8 @@ public class CLI
             final ValidatorSession session =
                 new ValidatorSession.Builder( repository, workspace ).withReportsDirectory( reports )
                                                                      .withPomExcludes( pomExcludePattern )
+                                                                     .withSettingsXmlPath( settingsXml )
+                                                                     .withRemoteRepositoryUrls( remoteRepositories )
                                                                      .build();
             new Weld().initialize()
                       .instance()
