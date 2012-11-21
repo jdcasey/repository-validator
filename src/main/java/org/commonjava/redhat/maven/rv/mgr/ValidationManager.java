@@ -8,12 +8,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.DefaultRepositoryRequest;
 import org.apache.maven.artifact.repository.metadata.ArtifactRepositoryMetadata;
 import org.apache.maven.artifact.repository.metadata.Metadata;
@@ -22,6 +24,7 @@ import org.apache.maven.artifact.repository.metadata.RepositoryMetadataResolutio
 import org.apache.maven.artifact.repository.metadata.Versioning;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
+import org.apache.maven.artifact.resolver.ResolutionNode;
 import org.apache.maven.graph.common.DependencyScope;
 import org.apache.maven.graph.common.ref.ArtifactRef;
 import org.apache.maven.graph.common.ref.ProjectRef;
@@ -178,6 +181,12 @@ public class ValidationManager
 
             if ( model != null )
             {
+                logger.info( "Loading file list for: %s", model );
+                final File dir = pomFile.getParentFile();
+                final String[] files = dir.list();
+
+                session.addProjectFiles( toArtifactRef( model, session ), files );
+
                 logger.info( "Validating: %s", pom );
                 validateProjectGraph( model, session );
             }
@@ -495,6 +504,20 @@ public class ValidationManager
             for ( final Exception exception : exceptions )
             {
                 session.addError( ref.asProjectVersionRef(), exception );
+            }
+        }
+        else
+        {
+            final Set<ResolutionNode> nodes = result.getArtifactResolutionNodes();
+            for ( final ResolutionNode node : nodes )
+            {
+                final Artifact nodeArtifact = node.getArtifact();
+                if ( nodeArtifact.equals( req.getArtifact() ) )
+                {
+                    final List<ArtifactRepository> repositories = node.getRemoteRepositories();
+                    session.addArtifactResolutionRepositories( ref, repositories );
+                    break;
+                }
             }
         }
     }

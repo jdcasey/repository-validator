@@ -10,6 +10,7 @@ import java.io.PrintWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.maven.artifact.InvalidRepositoryException;
+import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.resolver.ArtifactResolutionRequest;
 import org.apache.maven.execution.MavenExecutionRequestPopulationException;
 import org.apache.maven.graph.common.DependencyScope;
@@ -82,6 +84,8 @@ public class ValidatorSession
 
     private final Set<ProjectVersionRef> missing = new HashSet<ProjectVersionRef>();
 
+    private final Map<ProjectVersionRef, Set<String>> filesPerProject = new HashMap<ProjectVersionRef, Set<String>>();
+
     private DirModelResolver modelResolver;
 
     private ArtifactResolutionRequest baseArtifactResolutionRequest;
@@ -97,6 +101,8 @@ public class ValidatorSession
     private LinkedList<ProjectVersionRef> projectsToResolve = new LinkedList<ProjectVersionRef>();
 
     private LinkedList<ArtifactRef> typesToResolve = new LinkedList<ArtifactRef>();
+
+    private Map<ArtifactRef, List<String>> resolutionReposPerArtifact = new HashMap<ArtifactRef, List<String>>();
 
     private Set<ProjectRef> versionResolutionFailures = new HashSet<ProjectRef>();
 
@@ -600,6 +606,58 @@ public class ValidatorSession
     public Set<ProjectRef> getVersionResolutionFailures()
     {
         return new HashSet<ProjectRef>( versionResolutionFailures );
+    }
+
+    public void addProjectFiles( final ProjectVersionRef ref, final String[] files )
+    {
+        Set<String> projectFiles = this.filesPerProject.get( ref );
+        if ( projectFiles == null )
+        {
+            projectFiles = new HashSet<String>();
+            this.filesPerProject.put( ref, projectFiles );
+        }
+
+        projectFiles.addAll( Arrays.asList( files ) );
+    }
+
+    public Set<String> getProjectFiles( final ProjectVersionRef ref )
+    {
+        return filesPerProject.get( ref );
+    }
+
+    public Map<ProjectVersionRef, Set<String>> getAllProjectFiles()
+    {
+        return filesPerProject;
+    }
+
+    public void addArtifactResolutionRepositories( final ArtifactRef ref, final List<ArtifactRepository> repositories )
+    {
+        if ( repositories == null || repositories.isEmpty() )
+        {
+            return;
+        }
+
+        List<String> urls = resolutionReposPerArtifact.get( ref );
+        if ( urls == null )
+        {
+            urls = new ArrayList<String>( repositories.size() );
+            resolutionReposPerArtifact.put( ref, urls );
+        }
+
+        for ( final ArtifactRepository artifactRepository : repositories )
+        {
+            urls.add( artifactRepository.getUrl() );
+        }
+    }
+
+    public List<String> getArtifactResolutionRepositories( final ArtifactRef ref )
+    {
+        return resolutionReposPerArtifact.get( ref );
+    }
+
+    public Map<ArtifactRef, List<String>> getAllArtifactResolutionRepositories()
+    {
+        return resolutionReposPerArtifact;
     }
 
 }
