@@ -67,12 +67,6 @@ public final class ArtifactReferenceUtils
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s. Reason: %s", e, model,
                                                                e.getMessage() ) );
         }
-        //        catch ( final IllegalArgumentException e )
-        //        {
-        //            logger.error( "Cannot parse version for %s. Reason: %s", e, model, e.getMessage() );
-        //            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s. Reason: %s", e, model,
-        //                                                               e.getMessage() ) );
-        //        }
 
         return null;
     }
@@ -111,6 +105,8 @@ public final class ArtifactReferenceUtils
 
             // Trigger version spec exception...
             ref.getVersionSpec();
+
+            return ref;
         }
         catch ( final InvalidVersionSpecificationException e )
         {
@@ -130,7 +126,7 @@ public final class ArtifactReferenceUtils
                                                                e, ext, model, e.getMessage() ) );
         }
 
-        return ref;
+        return null;
     }
 
     public static ArtifactRef toArtifactRef( final Dependency dep, final ProjectVersionRef src,
@@ -147,13 +143,9 @@ public final class ArtifactReferenceUtils
 
             // Trigger version spec exception...
             ref.getVersionSpec();
+
+            return ref;
         }
-        //        catch ( final IllegalArgumentException e )
-        //        {
-        //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
-        //            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
-        //                                                               dep, src, e.getMessage() ) );
-        //        }
         catch ( final InvalidVersionSpecificationException e )
         {
             //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
@@ -166,7 +158,7 @@ public final class ArtifactReferenceUtils
                                                                e, dep, model, e.getMessage() ) );
         }
 
-        return ref;
+        return null;
     }
 
     private static String resolveExpressions( final String raw, final ValidatorSession session, final Model model )
