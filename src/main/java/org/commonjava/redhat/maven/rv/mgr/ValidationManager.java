@@ -431,7 +431,7 @@ public class ValidationManager
             final Parent parent = raw.getParent();
             if ( parent != null )
             {
-                final ProjectVersionRef parentRef = toArtifactRef( parent, session );
+                final ProjectVersionRef parentRef = toArtifactRef( parent, raw, session );
                 session.addParentLink( ref, parentRef );
             }
 

@@ -61,6 +61,12 @@ public final class ArtifactReferenceUtils
 
             return ref;
         }
+        catch ( final NullPointerException e )
+        {
+            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s. Reason: %s", e, model,
+                                                               e.getMessage() ) );
+        }
         catch ( final InvalidVersionSpecificationException e )
         {
             //            logger.error( "Cannot parse version for %s. Reason: %s", e, model, e.getMessage() );
@@ -71,7 +77,7 @@ public final class ArtifactReferenceUtils
         return null;
     }
 
-    public static ProjectVersionRef toArtifactRef( final Parent parent, final ValidatorSession session )
+    public static ProjectVersionRef toArtifactRef( final Parent parent, final Object src, final ValidatorSession session )
     {
         try
         {
@@ -82,6 +88,12 @@ public final class ArtifactReferenceUtils
             ref.getVersionSpec();
 
             return ref;
+        }
+        catch ( final NullPointerException e )
+        {
+            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
+                                                               parent, src, e.getMessage() ) );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
@@ -107,6 +119,12 @@ public final class ArtifactReferenceUtils
             ref.getVersionSpec();
 
             return ref;
+        }
+        catch ( final NullPointerException e )
+        {
+            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
+                                                               ext, src, e.getMessage() ) );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
@@ -145,6 +163,12 @@ public final class ArtifactReferenceUtils
             ref.getVersionSpec();
 
             return ref;
+        }
+        catch ( final NullPointerException e )
+        {
+            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
+                                                               dep, src, e.getMessage() ) );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
@@ -232,6 +256,12 @@ public final class ArtifactReferenceUtils
 
             return ref;
         }
+        catch ( final NullPointerException e )
+        {
+            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
+                                                               plugin, src, e.getMessage() ) );
+        }
         catch ( final InvalidVersionSpecificationException e )
         {
             //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, plugin, src, e.getMessage() );
@@ -270,6 +300,12 @@ public final class ArtifactReferenceUtils
             }
 
             return ref;
+        }
+        catch ( final NullPointerException e )
+        {
+            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
+                                                               plugin, src, e.getMessage() ) );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
