@@ -351,7 +351,7 @@ public class ValidatorSession
                 final Repository repo = new Repository();
                 repo.setUrl( url );
 
-                repo.setId( u.getHost() );
+                repo.setId( u.toString() );
                 if ( CENTRAL_URL_ALIASES.contains( url ) )
                 {
                     repo.setId( "central" );
