@@ -55,7 +55,12 @@ public final class ArtifactReferenceUtils
                 return null;
             }
 
-            return new ProjectVersionRef( group, model.getArtifactId(), version );
+            final ProjectVersionRef ref = new ProjectVersionRef( group, model.getArtifactId(), version );
+
+            // Trigger version spec exception...
+            ref.getVersionSpec();
+
+            return ref;
         }
         catch ( final InvalidVersionSpecificationException e )
         {
@@ -77,7 +82,13 @@ public final class ArtifactReferenceUtils
     {
         try
         {
-            return new ProjectVersionRef( parent.getGroupId(), parent.getArtifactId(), parent.getVersion() );
+            final ProjectVersionRef ref =
+                new ProjectVersionRef( parent.getGroupId(), parent.getArtifactId(), parent.getVersion() );
+
+            // Trigger version spec exception...
+            ref.getVersionSpec();
+
+            return ref;
         }
         catch ( final InvalidVersionSpecificationException e )
         {
@@ -98,6 +109,9 @@ public final class ArtifactReferenceUtils
             ref =
                 new ProjectVersionRef( resolveExpressions( ext.getGroupId(), model ), ext.getArtifactId(),
                                        resolveExpressions( ext.getVersion(), model ) );
+
+            // Trigger version spec exception...
+            ref.getVersionSpec();
         }
         catch ( final InvalidVersionSpecificationException e )
         {
@@ -126,6 +140,9 @@ public final class ArtifactReferenceUtils
                                                         dep.getArtifactId(), resolveExpressions( dep.getVersion(),
                                                                                                  model ) ),
                                  dep.getType(), dep.getClassifier(), dep.isOptional() );
+
+            // Trigger version spec exception...
+            ref.getVersionSpec();
         }
         //        catch ( final IllegalArgumentException e )
         //        {
@@ -178,9 +195,23 @@ public final class ArtifactReferenceUtils
     public static ArtifactRef toArtifactRef( final ProjectVersionRef base, final String type,
                                              final ValidatorSession session )
     {
-        return new ArtifactRef(
-                                new ProjectVersionRef( base.getGroupId(), base.getArtifactId(), base.getVersionSpec() ),
-                                type, null, false );
+        try
+        {
+            final ArtifactRef ref =
+                new ArtifactRef(
+                                 new ProjectVersionRef( base.getGroupId(), base.getArtifactId(), base.getVersionSpec() ),
+                                 type, null, false );
+
+            return ref;
+        }
+        catch ( final InvalidVersionSpecificationException e )
+        {
+            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, type, base, e.getMessage() );
+            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
+                                                               type, base, e.getMessage() ) );
+        }
+
+        return null;
     }
 
     public static ProjectRef toArtifactRef( final Plugin plugin, final ProjectVersionRef src,
@@ -198,6 +229,9 @@ public final class ArtifactReferenceUtils
                 ref =
                     new ProjectVersionRef( resolveExpressions( plugin.getGroupId(), model ), plugin.getArtifactId(),
                                            resolveExpressions( plugin.getVersion(), model ) );
+
+                // Trigger version spec exception...
+                ( (ProjectVersionRef) ref ).getVersionSpec();
             }
             catch ( final InvalidVersionSpecificationException e )
             {
@@ -231,6 +265,9 @@ public final class ArtifactReferenceUtils
                 ref =
                     new ProjectVersionRef( resolveExpressions( plugin.getGroupId(), model ), plugin.getArtifactId(),
                                            resolveExpressions( plugin.getVersion(), model ) );
+
+                // Trigger version spec exception...
+                ( (ProjectVersionRef) ref ).getVersionSpec();
             }
             catch ( final InvalidVersionSpecificationException e )
             {
