@@ -19,12 +19,11 @@ import org.codehaus.plexus.interpolation.PropertiesBasedValueSource;
 import org.codehaus.plexus.interpolation.StringSearchInterpolator;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
-import org.commonjava.util.logging.Logger;
 
 public final class ArtifactReferenceUtils
 {
 
-    private static final Logger logger = new Logger( ArtifactReferenceUtils.class );
+    //    private static final Logger logger = new Logger( ArtifactReferenceUtils.class );
 
     private ArtifactReferenceUtils()
     {
@@ -48,7 +47,7 @@ public final class ArtifactReferenceUtils
 
             if ( group == null || version == null )
             {
-                logger.error( "Invalid POM: %s:%s:%s", group, model.getArtifactId(), version );
+                //                logger.error( "Invalid POM: %s:%s:%s", group, model.getArtifactId(), version );
                 session.addLowLevelError( new ValidationException(
                                                                    "Invalid POM coordinate (missing information): %s:%s:%s.",
                                                                    group, model.getArtifactId(), version ) );
@@ -64,7 +63,7 @@ public final class ArtifactReferenceUtils
         }
         catch ( final InvalidVersionSpecificationException e )
         {
-            logger.error( "Cannot parse version for %s. Reason: %s", e, model, e.getMessage() );
+            //            logger.error( "Cannot parse version for %s. Reason: %s", e, model, e.getMessage() );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s. Reason: %s", e, model,
                                                                e.getMessage() ) );
         }
@@ -92,7 +91,7 @@ public final class ArtifactReferenceUtils
         }
         catch ( final InvalidVersionSpecificationException e )
         {
-            logger.error( "Cannot parse version for %s. Reason: %s", e, parent, e.getMessage() );
+            //            logger.error( "Cannot parse version for %s. Reason: %s", e, parent, e.getMessage() );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s. Reason: %s", e, parent,
                                                                e.getMessage() ) );
         }
@@ -107,15 +106,15 @@ public final class ArtifactReferenceUtils
         try
         {
             ref =
-                new ProjectVersionRef( resolveExpressions( ext.getGroupId(), model ), ext.getArtifactId(),
-                                       resolveExpressions( ext.getVersion(), model ) );
+                new ProjectVersionRef( resolveExpressions( ext.getGroupId(), session, model ), ext.getArtifactId(),
+                                       resolveExpressions( ext.getVersion(), session, model ) );
 
             // Trigger version spec exception...
             ref.getVersionSpec();
         }
         catch ( final InvalidVersionSpecificationException e )
         {
-            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, ext, src, e.getMessage() );
+            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, ext, src, e.getMessage() );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                ext, src, e.getMessage() ) );
         }
@@ -125,6 +124,11 @@ public final class ArtifactReferenceUtils
         //            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
         //                                                               ext, src, e.getMessage() ) );
         //        }
+        catch ( final InterpolationException e )
+        {
+            session.addLowLevelError( new ValidationException( "Cannot resolve expressions for: %s in %s. Reason: %s",
+                                                               e, ext, model, e.getMessage() ) );
+        }
 
         return ref;
     }
@@ -136,9 +140,9 @@ public final class ArtifactReferenceUtils
         try
         {
             ref =
-                new ArtifactRef( new ProjectVersionRef( resolveExpressions( dep.getGroupId(), model ),
+                new ArtifactRef( new ProjectVersionRef( resolveExpressions( dep.getGroupId(), session, model ),
                                                         dep.getArtifactId(), resolveExpressions( dep.getVersion(),
-                                                                                                 model ) ),
+                                                                                                 session, model ) ),
                                  dep.getType(), dep.getClassifier(), dep.isOptional() );
 
             // Trigger version spec exception...
@@ -152,15 +156,21 @@ public final class ArtifactReferenceUtils
         //        }
         catch ( final InvalidVersionSpecificationException e )
         {
-            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                dep, src, e.getMessage() ) );
+        }
+        catch ( final InterpolationException e )
+        {
+            session.addLowLevelError( new ValidationException( "Cannot resolve expressions for: %s in %s. Reason: %s",
+                                                               e, dep, model, e.getMessage() ) );
         }
 
         return ref;
     }
 
-    private static String resolveExpressions( final String raw, final Model model )
+    private static String resolveExpressions( final String raw, final ValidatorSession session, final Model model )
+        throws InterpolationException
     {
         if ( raw == null )
         {
@@ -178,15 +188,7 @@ public final class ArtifactReferenceUtils
 
             interp.addValueSource( new PrefixedObjectValueSource( expressionRoots, model, true ) );
 
-            try
-            {
-                return interp.interpolate( raw );
-            }
-            catch ( final InterpolationException e )
-            {
-                logger.error( "Failed to resolve expression from model.\nRaw string: '%s'\nModel: %s\nError: %s", e,
-                              raw, model, e.getMessage() );
-            }
+            return interp.interpolate( raw );
         }
 
         return raw;
@@ -206,7 +208,7 @@ public final class ArtifactReferenceUtils
         }
         catch ( final InvalidVersionSpecificationException e )
         {
-            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, type, base, e.getMessage() );
+            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, type, base, e.getMessage() );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                type, base, e.getMessage() ) );
         }
@@ -217,73 +219,79 @@ public final class ArtifactReferenceUtils
     public static ProjectRef toArtifactRef( final Plugin plugin, final ProjectVersionRef src,
                                             final ValidatorSession session, final Model model )
     {
-        ProjectRef ref = null;
-        if ( plugin.getVersion() == null )
+        try
         {
-            ref = new ProjectRef( resolveExpressions( plugin.getGroupId(), model ), plugin.getArtifactId() );
-        }
-        else
-        {
-            try
+            ProjectRef ref = null;
+            if ( plugin.getVersion() == null )
             {
                 ref =
-                    new ProjectVersionRef( resolveExpressions( plugin.getGroupId(), model ), plugin.getArtifactId(),
-                                           resolveExpressions( plugin.getVersion(), model ) );
+                    new ProjectRef( resolveExpressions( plugin.getGroupId(), session, model ), plugin.getArtifactId() );
+            }
+            else
+            {
+                ref =
+                    new ProjectVersionRef( resolveExpressions( plugin.getGroupId(), session, model ),
+                                           plugin.getArtifactId(), resolveExpressions( plugin.getVersion(), session,
+                                                                                       model ) );
 
                 // Trigger version spec exception...
                 ( (ProjectVersionRef) ref ).getVersionSpec();
             }
-            catch ( final InvalidVersionSpecificationException e )
-            {
-                logger.error( "Cannot parse version for %s in %s. Reason: %s", e, plugin, src, e.getMessage() );
-                session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
-                                                                   plugin, src, e.getMessage() ) );
-            }
-            //            catch ( final IllegalArgumentException e )
-            //            {
-            //                logger.error( "Cannot parse version for %s in %s. Reason: %s", e, plugin, src, e.getMessage() );
-            //                session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
-            //                                                                   plugin, src, e.getMessage() ) );
-            //            }
+
+            return ref;
+        }
+        catch ( final InvalidVersionSpecificationException e )
+        {
+            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, plugin, src, e.getMessage() );
+            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
+                                                               plugin, src, e.getMessage() ) );
+        }
+        catch ( final InterpolationException e )
+        {
+            session.addLowLevelError( new ValidationException( "Cannot resolve expressions for: %s in %s. Reason: %s",
+                                                               e, plugin, model, e.getMessage() ) );
         }
 
-        return ref;
+        return null;
     }
 
     public static ProjectRef toArtifactRef( final ReportPlugin plugin, final ProjectVersionRef src,
                                             final ValidatorSession session, final Model model )
     {
-        ProjectRef ref = null;
-        if ( plugin.getVersion() == null )
+        try
         {
-            ref = new ProjectRef( plugin.getGroupId(), plugin.getArtifactId() );
-        }
-        else
-        {
-            try
+            ProjectRef ref = null;
+            if ( plugin.getVersion() == null )
             {
                 ref =
-                    new ProjectVersionRef( resolveExpressions( plugin.getGroupId(), model ), plugin.getArtifactId(),
-                                           resolveExpressions( plugin.getVersion(), model ) );
+                    new ProjectRef( resolveExpressions( plugin.getGroupId(), session, model ), plugin.getArtifactId() );
+            }
+            else
+            {
+                ref =
+                    new ProjectVersionRef( resolveExpressions( plugin.getGroupId(), session, model ),
+                                           plugin.getArtifactId(), resolveExpressions( plugin.getVersion(), session,
+                                                                                       model ) );
 
                 // Trigger version spec exception...
                 ( (ProjectVersionRef) ref ).getVersionSpec();
             }
-            catch ( final InvalidVersionSpecificationException e )
-            {
-                logger.error( "Cannot parse version for %s in %s. Reason: %s", e, plugin, src, e.getMessage() );
-                session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
-                                                                   plugin, src, e.getMessage() ) );
-            }
-            //            catch ( final IllegalArgumentException e )
-            //            {
-            //                logger.error( "Cannot parse version for %s in %s. Reason: %s", e, plugin, src, e.getMessage() );
-            //                session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
-            //                                                                   plugin, src, e.getMessage() ) );
-            //            }
+
+            return ref;
+        }
+        catch ( final InvalidVersionSpecificationException e )
+        {
+            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, plugin, src, e.getMessage() );
+            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
+                                                               plugin, src, e.getMessage() ) );
+        }
+        catch ( final InterpolationException e )
+        {
+            session.addLowLevelError( new ValidationException( "Cannot resolve expressions for: %s in %s. Reason: %s",
+                                                               e, plugin, model, e.getMessage() ) );
         }
 
-        return ref;
+        return null;
     }
 
 }
