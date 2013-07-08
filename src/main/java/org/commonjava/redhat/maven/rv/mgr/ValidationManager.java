@@ -452,7 +452,7 @@ public class ValidationManager
                 {
                     if ( "import".equals( dep.getScope() ) && "pom".equals( dep.getType() ) )
                     {
-                        final ArtifactRef depRef = toArtifactRef( dep, ref, session );
+                        final ArtifactRef depRef = toArtifactRef( dep, ref, session, raw );
                         if ( depRef == null )
                         {
                             logger.error( "Cannot add BOM reference for %s. Error occurred while constructing artifact reference",
@@ -470,7 +470,7 @@ public class ValidationManager
 
                 if ( !extraToValidate.isEmpty() )
                 {
-                    validateDependencies( extraToValidate, session, true, ref );
+                    validateDependencies( extraToValidate, session, true, ref, model );
                 }
             }
         }
@@ -549,9 +549,9 @@ public class ValidationManager
             return;
         }
 
-        validateDependencySections( model, session, src );
-        validateBuild( model.getBuild(), session, src );
-        validateReporting( model, session, src );
+        validateDependencySections( model, session, src, model );
+        validateBuild( model.getBuild(), session, src, model );
+        validateReporting( model, session, src, model );
 
         // FIXME: Not sure what to do with profiles. 
         // I suspect checking them exhaustively will result in a lot of 
@@ -585,27 +585,28 @@ public class ValidationManager
         //        }
     }
 
-    private void validateDependencySections( final ModelBase model, final ValidatorSession session,
-                                             final ProjectVersionRef src )
+    private void validateDependencySections( final ModelBase base, final ValidatorSession session,
+                                             final ProjectVersionRef src, final Model model )
     {
-        final DependencyManagement dm = model.getDependencyManagement();
+        final DependencyManagement dm = base.getDependencyManagement();
         if ( dm != null )
         {
             final List<Dependency> deps = dm.getDependencies();
             if ( deps != null )
             {
-                validateDependencies( deps, session, true, src );
+                validateDependencies( deps, session, true, src, model );
             }
         }
 
-        final List<Dependency> deps = model.getDependencies();
+        final List<Dependency> deps = base.getDependencies();
         if ( deps != null )
         {
-            validateDependencies( deps, session, false, src );
+            validateDependencies( deps, session, false, src, model );
         }
     }
 
-    private void validateBuild( final BuildBase build, final ValidatorSession session, final ProjectVersionRef src )
+    private void validateBuild( final BuildBase build, final ValidatorSession session, final ProjectVersionRef src,
+                                final Model model )
     {
         if ( build != null )
         {
@@ -615,7 +616,7 @@ public class ValidationManager
                 final List<Extension> extensions = b.getExtensions();
                 if ( extensions != null )
                 {
-                    validateExtensions( extensions, session, src );
+                    validateExtensions( extensions, session, src, model );
                 }
             }
 
@@ -625,22 +626,23 @@ public class ValidationManager
                 final List<Plugin> plugins = pm.getPlugins();
                 if ( plugins != null )
                 {
-                    validatePlugins( plugins, session, true, src );
+                    validatePlugins( plugins, session, true, src, model );
                 }
             }
 
             final List<Plugin> plugins = build.getPlugins();
             if ( plugins != null )
             {
-                validatePlugins( plugins, session, false, src );
+                validatePlugins( plugins, session, false, src, model );
             }
         }
     }
 
-    private void validateReporting( final ModelBase model, final ValidatorSession session, final ProjectVersionRef src )
+    private void validateReporting( final ModelBase base, final ValidatorSession session, final ProjectVersionRef src,
+                                    final Model model )
     {
         //        logger.info( "Validating reporting: %s", src );
-        final Reporting reporting = model.getReporting();
+        final Reporting reporting = base.getReporting();
         if ( reporting != null )
         {
             final List<ReportPlugin> plugins = reporting.getPlugins();
@@ -649,7 +651,7 @@ public class ValidationManager
                 int idx = 0;
                 for ( final ReportPlugin plugin : plugins )
                 {
-                    ProjectRef ref = toArtifactRef( plugin, src, session );
+                    ProjectRef ref = toArtifactRef( plugin, src, session, model );
                     if ( ref == null )
                     {
                         continue;
@@ -696,7 +698,7 @@ public class ValidationManager
     }
 
     private void validatePlugins( final List<Plugin> plugins, final ValidatorSession session, final boolean managed,
-                                  final ProjectVersionRef src )
+                                  final ProjectVersionRef src, final Model model )
     {
         //        logger.info( "Validating plugins: %s", src );
         if ( plugins != null )
@@ -704,7 +706,7 @@ public class ValidationManager
             int idx = 0;
             for ( final Plugin plugin : plugins )
             {
-                ProjectRef ref = toArtifactRef( plugin, src, session );
+                ProjectRef ref = toArtifactRef( plugin, src, session, model );
                 if ( ref == null )
                 {
                     continue;
@@ -750,7 +752,7 @@ public class ValidationManager
     }
 
     private void validateExtensions( final List<Extension> extensions, final ValidatorSession session,
-                                     final ProjectVersionRef src )
+                                     final ProjectVersionRef src, final Model model )
     {
         //        logger.info( "Validating extensions: %s", src );
         if ( extensions != null )
@@ -758,7 +760,7 @@ public class ValidationManager
             int idx = 0;
             for ( final Extension extension : extensions )
             {
-                final ProjectVersionRef ref = toArtifactRef( extension, src, session );
+                final ProjectVersionRef ref = toArtifactRef( extension, src, session, model );
                 if ( ref == null )
                 {
                     continue;
@@ -778,7 +780,7 @@ public class ValidationManager
     }
 
     private void validateDependencies( final List<Dependency> deps, final ValidatorSession session,
-                                       final boolean managed, final ProjectVersionRef src )
+                                       final boolean managed, final ProjectVersionRef src, final Model model )
     {
         //        logger.info( "Validating dependencies: %s", src );
         if ( deps != null )
@@ -788,7 +790,7 @@ public class ValidationManager
             {
                 //                logger.info( "[DEP] %s", dependency );
 
-                ArtifactRef ref = toArtifactRef( dependency, src, session );
+                ArtifactRef ref = toArtifactRef( dependency, src, session, model );
                 if ( ref == null )
                 {
                     continue;
