@@ -270,8 +270,13 @@
     </dependency>
     <dependency>
       <groupId>org.commonjava.maven</groupId>
-      <artifactId>atlas</artifactId>
-      <version>0.2.0</version>
+      <artifactId>atlas-api</artifactId>
+      <version>0.6.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.commonjava.maven</groupId>
+      <artifactId>atlas-driver-jung</artifactId>
+      <version>0.6.0</version>
     </dependency>
   </dependencies>
 </project>

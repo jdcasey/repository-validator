@@ -6,7 +6,6 @@ import static org.apache.commons.lang.StringUtils.join;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -14,19 +13,14 @@ import java.util.Set;
 
 import javax.inject.Named;
 
-import org.apache.maven.graph.common.DependencyScope;
 import org.apache.maven.graph.common.ref.ArtifactRef;
 import org.apache.maven.graph.common.ref.ProjectVersionRef;
 import org.apache.maven.graph.effective.EProjectWeb;
-import org.apache.maven.graph.effective.rel.DependencyRelationship;
-import org.apache.maven.graph.effective.rel.PluginRelationship;
 import org.apache.maven.graph.effective.rel.ProjectRelationship;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
 import org.commonjava.redhat.maven.rv.util.ToStringComparator;
 import org.commonjava.util.logging.Logger;
-
-import edu.uci.ics.jung.graph.DirectedGraph;
 
 @Named( "missing-impacts-2.txt" )
 public class MissingImpactsReport2
@@ -55,7 +49,6 @@ public class MissingImpactsReport2
         Collections.sort( sortedMissing, new ToStringComparator<ProjectVersionRef>() );
 
         final EProjectWeb web = session.getProjectWeb();
-        final DirectedGraph<ProjectVersionRef, ProjectRelationship<?>> graph = web.getRawGraph();
         PrintWriter writer = null;
 
         try
@@ -64,7 +57,7 @@ public class MissingImpactsReport2
             logger.info( "Looking for impact of missing projects:\n  %s\n", join( missing, "\n  " ) );
             for ( final ProjectVersionRef missingRef : sortedMissing )
             {
-                calculateMissingImpacts( missingRef, graph, writer );
+                calculateMissingImpacts( missingRef, web, writer );
             }
         }
         finally
@@ -73,60 +66,27 @@ public class MissingImpactsReport2
         }
     }
 
-    private void calculateMissingImpacts( final ProjectVersionRef missingRef,
-                                          final DirectedGraph<ProjectVersionRef, ProjectRelationship<?>> graph,
+    private void calculateMissingImpacts( final ProjectVersionRef missingRef, final EProjectWeb web,
                                           final PrintWriter writer )
     {
         logger.info( "Generating impacted-project list for: %s", missingRef );
 
+        final Set<List<ProjectRelationship<?>>> paths = web.getPathsTo( missingRef );
+
         final Set<ProjectVersionRef> allImpacted = new HashSet<ProjectVersionRef>();
-        final Set<ProjectVersionRef> nextImpacted = new HashSet<ProjectVersionRef>();
-        nextImpacted.add( missingRef );
-
-        int idx = 0;
-        do
+        for ( final List<ProjectRelationship<?>> path : paths )
         {
-            logger.info( "PASS: %d", idx );
-            final Set<ProjectVersionRef> current = new HashSet<ProjectVersionRef>( nextImpacted );
-
-            nextImpacted.clear();
-
-            for ( final ProjectVersionRef ref : current )
+            for ( final ProjectRelationship<?> rel : path )
             {
-                if ( !missingRef.equals( ref ) )
+                final ProjectVersionRef impacted = rel.getDeclaring()
+                                                      .asProjectVersionRef();
+                if ( !impacted.equals( missingRef ) )
                 {
-                    logger.info( "  +%s", ref );
-                    allImpacted.add( ref );
-                }
-
-                final Collection<ProjectRelationship<?>> inEdges = graph.getInEdges( ref );
-                if ( inEdges != null && !inEdges.isEmpty() )
-                {
-                    for ( final ProjectRelationship<?> rel : inEdges )
-                    {
-                        if ( rel instanceof DependencyRelationship
-                            && ( ( (DependencyRelationship) rel ).isManaged()
-                                || ( (DependencyRelationship) rel ).getTarget()
-                                                                   .isOptional() || !DependencyScope.runtime.implies( ( (DependencyRelationship) rel ).getScope() ) ) )
-                        {
-                            continue;
-                        }
-
-                        if ( rel instanceof PluginRelationship && ( (PluginRelationship) rel ).isManaged() )
-                        {
-                            continue;
-                        }
-
-                        logger.info( "NEXT++ %s", rel.getDeclaring() );
-                        nextImpacted.add( rel.getDeclaring() );
-                    }
+                    logger.info( "  +%s", impacted );
+                    allImpacted.add( impacted );
                 }
             }
-
-            logger.info( "    ...rendered %d new impacts to analyze.", nextImpacted.size() );
-            idx++;
         }
-        while ( !nextImpacted.isEmpty() );
 
         if ( allImpacted.isEmpty() )
         {

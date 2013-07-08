@@ -21,6 +21,7 @@ import org.apache.maven.graph.effective.EProjectWeb;
 import org.apache.maven.graph.effective.rel.ProjectRelationship;
 import org.apache.maven.graph.effective.rel.RelationshipComparator;
 import org.apache.maven.graph.effective.traverse.ImpactTraversal;
+import org.apache.maven.graph.spi.GraphDriverException;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
 import org.commonjava.redhat.maven.rv.util.ToStringComparator;
@@ -58,7 +59,14 @@ public class MissingImpactsReport
         for ( final ProjectVersionRef root : roots )
         {
             logger.info( "Starting traversal of root: %s for impacts of target(s)\n", root );
-            projectWeb.traverse( root, traversal );
+            try
+            {
+                projectWeb.traverse( root, traversal );
+            }
+            catch ( final GraphDriverException e )
+            {
+                throw new ValidationException( "Failed to traverse graph for impacts: %s", e, e.getMessage() );
+            }
         }
 
         final Map<ProjectVersionRef, Set<List<ProjectRelationship<?>>>> impactedPaths = traversal.getImpactedPaths();
