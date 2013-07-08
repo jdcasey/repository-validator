@@ -27,6 +27,8 @@ import org.apache.maven.settings.building.SettingsBuildingException;
 import org.apache.maven.settings.building.SettingsBuildingResult;
 import org.codehaus.plexus.component.annotations.Component;
 import org.codehaus.plexus.component.annotations.Requirement;
+import org.sonatype.aether.impl.ArtifactResolver;
+import org.sonatype.aether.impl.RemoteRepositoryManager;
 
 @Singleton
 public class MavenComponentManager
@@ -72,6 +74,18 @@ public class MavenComponentManager
         return app.modelBuilder;
     }
 
+    @Produces
+    public ArtifactResolver getArtifactResolver()
+    {
+        return app.resolver;
+    }
+
+    @Produces
+    public RemoteRepositoryManager getRemoteRepositoryManager()
+    {
+        return app.repoManager;
+    }
+
     @Component( role = MAEApp.class )
     private static class MAEApp
         extends AbstractMAEApplication
@@ -97,6 +111,12 @@ public class MavenComponentManager
 
         @Requirement
         private MavenExecutionRequestPopulator requestPopulator;
+
+        @Requirement
+        private RemoteRepositoryManager repoManager;
+
+        @Requirement
+        private ArtifactResolver resolver;
 
         public String getId()
         {

@@ -63,9 +63,12 @@ import org.codehaus.plexus.util.DirectoryScanner;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.comp.MavenComponentManager;
+import org.commonjava.redhat.maven.rv.comp.ValidatorModelResolver;
 import org.commonjava.redhat.maven.rv.report.ValidationReport;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
 import org.commonjava.util.logging.Logger;
+import org.sonatype.aether.impl.ArtifactResolver;
+import org.sonatype.aether.impl.RemoteRepositoryManager;
 
 @Singleton
 public class ValidationManager
@@ -91,6 +94,12 @@ public class ValidationManager
 
     @Inject
     private Instance<ValidationReport> reports;
+
+    @Inject
+    private RemoteRepositoryManager repoManager;
+
+    @Inject
+    private ArtifactResolver resolver;
 
     public void validate( final ValidatorSession session )
         throws ValidationException
@@ -209,7 +218,7 @@ public class ValidationManager
                 continue;
             }
 
-            final Model model = buildModel( source, session );
+            final Model model = buildModel( ref.toString(), source, session );
             if ( model == null )
             {
                 session.addMissing( ref );
@@ -252,9 +261,11 @@ public class ValidationManager
         {
             // FIXME: Resolve version ranges before attempting this.
             // FIXME: Once version ranges are resolved, we'll need a decent way to log the seen/missing status for this ref.
-            source = session.getModelResolver()
-                            .resolveModel( ref.getGroupId(), ref.getArtifactId(), ref.getVersionSpec()
-                                                                                     .renderStandard() );
+            source =
+                new ValidatorModelResolver( session, ref.toString(), resolver, repoManager ).resolveModel( ref.getGroupId(),
+                                                                                                           ref.getArtifactId(),
+                                                                                                           ref.getVersionSpec()
+                                                                                                              .renderStandard() );
         }
         catch ( final UnresolvableModelException e )
         {
@@ -332,16 +343,20 @@ public class ValidationManager
     private Model buildModel( final File pomFile, final ValidatorSession session )
     {
         final ModelSource source = new FileModelSource( pomFile );
-        final Model model = buildModel( source, session );
+        final Model model = buildModel( pomFile.getPath(), source, session );
 
         return model;
     }
 
-    private Model buildModel( final ModelSource source, final ValidatorSession session )
+    private Model buildModel( final String pomPath, final ModelSource source, final ValidatorSession session )
     {
         final DefaultModelBuildingRequest mbr =
             new DefaultModelBuildingRequest( session.getBaseModelBuildingRequest() ).setModelSource( source )
-                                                                                    .setModelResolver( session.getModelResolver() );
+                                                                                    .setModelResolver( new ValidatorModelResolver(
+                                                                                                                                   session,
+                                                                                                                                   pomPath,
+                                                                                                                                   resolver,
+                                                                                                                                   repoManager ) );
 
         // FIXME: Which level ignores deployed status in distMgmt??
         mbr.setValidationLevel( ModelBuildingRequest.VALIDATION_LEVEL_MAVEN_3_0 );

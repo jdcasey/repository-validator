@@ -39,10 +39,8 @@ import org.apache.maven.model.Repository;
 import org.apache.maven.model.building.DefaultModelBuildingRequest;
 import org.apache.maven.model.building.ModelBuildingRequest;
 import org.apache.maven.model.building.ModelProblem;
-import org.apache.maven.model.resolution.ModelResolver;
 import org.apache.maven.settings.building.SettingsBuildingException;
 import org.commonjava.redhat.maven.rv.ValidationException;
-import org.commonjava.redhat.maven.rv.comp.DirModelResolver;
 import org.commonjava.redhat.maven.rv.comp.MavenComponentManager;
 import org.commonjava.redhat.maven.rv.report.ValidationReport;
 import org.sonatype.aether.RepositorySystemSession;
@@ -85,8 +83,6 @@ public class ValidatorSession
     private final Set<ProjectVersionRef> missing = new HashSet<ProjectVersionRef>();
 
     private final Map<ProjectVersionRef, Set<String>> filesPerProject = new HashMap<ProjectVersionRef, Set<String>>();
-
-    private DirModelResolver modelResolver;
 
     private ArtifactResolutionRequest baseArtifactResolutionRequest;
 
@@ -317,16 +313,6 @@ public class ValidatorSession
         return repositoryDirectory;
     }
 
-    public ModelResolver getModelResolver()
-    {
-        if ( modelResolver == null )
-        {
-            modelResolver = new DirModelResolver( getRepositoryDirectory() );
-        }
-
-        return modelResolver;
-    }
-
     public DefaultModelBuildingRequest getBaseModelBuildingRequest()
     {
         return baseModelBuildingRequest;
@@ -401,8 +387,6 @@ public class ValidatorSession
         // put this one up front, so we prefer it.
         repos.add( 0, repo );
 
-        projectSession.setResolveRepositories( repos.toArray( new Repository[] {} ) );
-
         if ( settingsXmlPath != null )
         {
             final File settingsXml = getFile( settingsXmlPath, downloadsDirectory );
@@ -421,6 +405,8 @@ public class ValidatorSession
                                                e.getMessage() );
             }
         }
+
+        projectSession.setResolveRepositories( repos.toArray( new Repository[] {} ) );
 
         try
         {
@@ -658,6 +644,11 @@ public class ValidatorSession
     public Map<ArtifactRef, List<String>> getAllArtifactResolutionRepositories()
     {
         return resolutionReposPerArtifact;
+    }
+
+    public List<RemoteRepository> getRemoteRepositoriesForResolution()
+    {
+        return projectSession.getRemoteRepositoriesForResolution();
     }
 
 }
