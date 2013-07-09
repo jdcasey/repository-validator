@@ -40,7 +40,7 @@ import org.apache.maven.model.building.DefaultModelBuildingRequest;
 import org.apache.maven.model.building.ModelBuildingRequest;
 import org.apache.maven.model.building.ModelProblem;
 import org.apache.maven.settings.building.SettingsBuildingException;
-import org.commonjava.maven.atlas.spi.jung.effective.JungEGraphDriver;
+import org.commonjava.maven.atlas.spi.neo4j.effective.FileNeo4JEGraphDriver;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.comp.MavenComponentManager;
 import org.commonjava.redhat.maven.rv.report.ValidationReport;
@@ -93,7 +93,7 @@ public class ValidatorSession
 
     private List<Exception> lowLevelErrors = new ArrayList<Exception>();
 
-    private EProjectWeb projectWeb = new EProjectWeb( new JungEGraphDriver() );
+    private final EProjectWeb projectWeb;
 
     private LinkedList<ProjectVersionRef> projectsToResolve = new LinkedList<ProjectVersionRef>();
 
@@ -205,6 +205,12 @@ public class ValidatorSession
         this.workspaceDirectory = workspaceDirectory;
         this.reportsDirectory = reportsDirectory;
         this.downloadsDirectory = downloadsDirectory;
+
+        final File depgraphDir = new File( workspaceDirectory, "depgraph" );
+        depgraphDir.mkdirs();
+
+        this.projectWeb = new EProjectWeb( new FileNeo4JEGraphDriver( depgraphDir, false ) );
+
         this.pomExcludes = Collections.unmodifiableSet( pomExcludes );
     }
 

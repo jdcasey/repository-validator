@@ -275,7 +275,7 @@
     </dependency>
     <dependency>
       <groupId>org.commonjava.maven</groupId>
-      <artifactId>atlas-driver-jung</artifactId>
+      <artifactId>atlas-driver-neo4j-embedded</artifactId>
       <version>0.6.0</version>
     </dependency>
   </dependencies>
