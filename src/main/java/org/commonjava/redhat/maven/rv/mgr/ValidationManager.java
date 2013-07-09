@@ -116,6 +116,12 @@ public class ValidationManager
         for ( final ValidationReport report : reports )
         {
             final String named = findNamed( report );
+            if ( !report.canRun( session ) )
+            {
+                logger.info( "...skipping %s", named );
+                continue;
+            }
+
             logger.info( "...writing %s", named );
 
             try
