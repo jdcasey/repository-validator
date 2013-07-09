@@ -234,8 +234,12 @@ public final class ArtifactReferenceUtils
             ProjectRef ref = null;
             if ( plugin.getVersion() == null )
             {
-                ref =
-                    new ProjectRef( resolveExpressions( plugin.getGroupId(), session, model ), plugin.getArtifactId() );
+                if ( plugin.getGroupId() != null && plugin.getArtifactId() != null )
+                {
+                    ref =
+                        new ProjectRef( resolveExpressions( plugin.getGroupId(), session, model ),
+                                        plugin.getArtifactId() );
+                }
             }
             else
             {
@@ -279,8 +283,12 @@ public final class ArtifactReferenceUtils
             ProjectRef ref = null;
             if ( plugin.getVersion() == null )
             {
-                ref =
-                    new ProjectRef( resolveExpressions( plugin.getGroupId(), session, model ), plugin.getArtifactId() );
+                if ( plugin.getGroupId() != null && plugin.getArtifactId() != null )
+                {
+                    ref =
+                        new ProjectRef( resolveExpressions( plugin.getGroupId(), session, model ),
+                                        plugin.getArtifactId() );
+                }
             }
             else
             {
