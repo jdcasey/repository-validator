@@ -225,6 +225,10 @@
     	<version>4.1.1</version>
       <exclusions>
         <exclusion>
+          <groupId>commons-codec</groupId>
+          <artifactId>commons-codec</artifactId>
+        </exclusion>
+        <exclusion>
           <groupId>commons-logging</groupId>
           <artifactId>commons-logging</artifactId>
         </exclusion>
@@ -277,6 +281,17 @@
       <groupId>org.commonjava.maven</groupId>
       <artifactId>atlas-driver-neo4j-embedded</artifactId>
       <version>0.6.0</version>
+      <exclusions>
+        <exclusion>
+          <groupId>commons-codec</groupId>
+          <artifactId>commons-codec</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+      <version>1.6</version>
     </dependency>
   </dependencies>
 </project>
