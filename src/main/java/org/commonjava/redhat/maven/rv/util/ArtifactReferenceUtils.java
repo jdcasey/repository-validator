@@ -31,9 +31,9 @@ public final class ArtifactReferenceUtils
 
     public static ProjectVersionRef toArtifactRef( final Model model, final ValidatorSession session )
     {
+        String group = model.getGroupId();
         try
         {
-            String group = model.getGroupId();
             final Parent parent = model.getParent();
             if ( group == null && parent != null )
             {
@@ -63,13 +63,13 @@ public final class ArtifactReferenceUtils
         }
         catch ( final NullPointerException e )
         {
-            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( group, model.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s. Reason: %s", e, model,
                                                                e.getMessage() ) );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
-            //            logger.error( "Cannot parse version for %s. Reason: %s", e, model, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( group, model.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s. Reason: %s", e, model,
                                                                e.getMessage() ) );
         }
@@ -91,13 +91,13 @@ public final class ArtifactReferenceUtils
         }
         catch ( final NullPointerException e )
         {
-            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( parent.getGroupId(), parent.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                parent, src, e.getMessage() ) );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
-            //            logger.error( "Cannot parse version for %s. Reason: %s", e, parent, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( parent.getGroupId(), parent.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s. Reason: %s", e, parent,
                                                                e.getMessage() ) );
         }
@@ -122,22 +122,16 @@ public final class ArtifactReferenceUtils
         }
         catch ( final NullPointerException e )
         {
-            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( ext.getGroupId(), ext.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                ext, src, e.getMessage() ) );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
-            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, ext, src, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( ext.getGroupId(), ext.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                ext, src, e.getMessage() ) );
         }
-        //        catch ( final IllegalArgumentException e )
-        //        {
-        //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, ext, src, e.getMessage() );
-        //            session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
-        //                                                               ext, src, e.getMessage() ) );
-        //        }
         catch ( final InterpolationException e )
         {
             session.addLowLevelError( new ValidationException( "Cannot resolve expressions for: %s in %s. Reason: %s",
@@ -166,13 +160,13 @@ public final class ArtifactReferenceUtils
         }
         catch ( final NullPointerException e )
         {
-            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( dep.getGroupId(), dep.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                dep, src, e.getMessage() ) );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
-            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( dep.getGroupId(), dep.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                dep, src, e.getMessage() ) );
         }
@@ -224,7 +218,7 @@ public final class ArtifactReferenceUtils
         }
         catch ( final InvalidVersionSpecificationException e )
         {
-            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, type, base, e.getMessage() );
+            session.addVersionResolutionFailure( base.asProjectRef() );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                type, base, e.getMessage() ) );
         }
@@ -258,13 +252,13 @@ public final class ArtifactReferenceUtils
         }
         catch ( final NullPointerException e )
         {
-            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( plugin.getGroupId(), plugin.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                plugin, src, e.getMessage() ) );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
-            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, plugin, src, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( plugin.getGroupId(), plugin.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                plugin, src, e.getMessage() ) );
         }
@@ -303,13 +297,13 @@ public final class ArtifactReferenceUtils
         }
         catch ( final NullPointerException e )
         {
-            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, dep, src, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( plugin.getGroupId(), plugin.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                plugin, src, e.getMessage() ) );
         }
         catch ( final InvalidVersionSpecificationException e )
         {
-            //            logger.error( "Cannot parse version for %s in %s. Reason: %s", e, plugin, src, e.getMessage() );
+            session.addVersionResolutionFailure( new ProjectRef( plugin.getGroupId(), plugin.getArtifactId() ) );
             session.addLowLevelError( new ValidationException( "Cannot parse version for: %s in %s. Reason: %s", e,
                                                                plugin, src, e.getMessage() ) );
         }

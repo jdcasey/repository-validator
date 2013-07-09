@@ -8,6 +8,8 @@ import org.commonjava.redhat.maven.rv.session.ValidatorSession;
 public interface ValidationReport
 {
 
+    boolean canRun( ValidatorSession session );
+
     void write( ValidatorSession session )
         throws IOException, ValidationException;
 

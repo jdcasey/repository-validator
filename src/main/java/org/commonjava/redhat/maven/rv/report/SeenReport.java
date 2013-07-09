@@ -40,4 +40,9 @@ public class SeenReport
         }
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getSeen() != null;
+    }
+
 }

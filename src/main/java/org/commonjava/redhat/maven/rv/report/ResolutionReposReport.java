@@ -58,4 +58,9 @@ public class ResolutionReposReport
         }
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getAllArtifactResolutionRepositories() != null;
+    }
+
 }

@@ -3,8 +3,6 @@ package org.commonjava.redhat.maven.rv.session;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertThat;
 
-import java.io.File;
-
 import org.apache.log4j.Level;
 import org.apache.maven.graph.common.ref.ProjectVersionRef;
 import org.apache.maven.graph.common.version.InvalidVersionSpecificationException;
@@ -30,10 +28,8 @@ public class ValidatorSessionTest
     public void addMissingThenVerifyMissingAndSeenAreTrue()
         throws InvalidVersionSpecificationException, Exception
     {
-        final File repo = temp.newFolder();
-        final File ws = temp.newFolder();
-
-        final ValidatorSession session = new ValidatorSession.Builder( repo, ws ).build();
+        final ValidatorSession session = new ValidatorSession.Builder( null, null ).withGraphingEnabled( false )
+                                                                                   .build();
         session.addMissing( new ProjectVersionRef( "isorelax", "isorelax", "20050331" ) );
 
         final ProjectVersionRef ref = new ProjectVersionRef( "isorelax", "isorelax", "20050331" );
@@ -44,10 +40,8 @@ public class ValidatorSessionTest
     public void addIdenticalRefsToMissingThenVerifyOnlyOneAdded()
         throws InvalidVersionSpecificationException, Exception
     {
-        final File repo = temp.newFolder();
-        final File ws = temp.newFolder();
-
-        final ValidatorSession session = new ValidatorSession.Builder( repo, ws ).build();
+        final ValidatorSession session = new ValidatorSession.Builder( null, null ).withGraphingEnabled( false )
+                                                                                   .build();
         session.addMissing( new ProjectVersionRef( "isorelax", "isorelax", "20050331" ) );
 
         final ProjectVersionRef ref = new ProjectVersionRef( "isorelax", "isorelax", "20050331" );

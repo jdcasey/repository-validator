@@ -123,6 +123,8 @@ public class ValidatorSession
 
         private List<String> remoteRepos;
 
+        private boolean graphRelationships;
+
         public Builder( final File repositoryDirectory, final File workspaceDirectory )
         {
             this.repositoryDirectory = repositoryDirectory;
@@ -179,7 +181,7 @@ public class ValidatorSession
             }
 
             return new ValidatorSession( remoteRepos, settingsXml, repositoryDirectory, workspaceDirectory, reports,
-                                         downloads, pomExcludes );
+                                         downloads, pomExcludes, graphRelationships );
         }
 
         public Builder withSettingsXmlPath( final String settingsXml )
@@ -193,11 +195,18 @@ public class ValidatorSession
             this.remoteRepos = remoteRepos;
             return this;
         }
+
+        public Builder withGraphingEnabled( final boolean graphRelationships )
+        {
+            this.graphRelationships = graphRelationships;
+            return this;
+        }
     }
 
     private ValidatorSession( final List<String> remoteRepos, final String settingsXml, final File repositoryDirectory,
                               final File workspaceDirectory, final File reportsDirectory,
-                              final File downloadsDirectory, final Set<String> pomExcludes )
+                              final File downloadsDirectory, final Set<String> pomExcludes,
+                              final boolean graphRelationships )
     {
         this.remoteRepoUrls = remoteRepos;
         this.settingsXmlPath = settingsXml;
@@ -209,7 +218,8 @@ public class ValidatorSession
         final File depgraphDir = new File( workspaceDirectory, "depgraph" );
         depgraphDir.mkdirs();
 
-        this.projectWeb = new EProjectWeb( new FileNeo4JEGraphDriver( depgraphDir, false ) );
+        this.projectWeb =
+            graphRelationships ? new EProjectWeb( new FileNeo4JEGraphDriver( depgraphDir, false ) ) : null;
 
         this.pomExcludes = Collections.unmodifiableSet( pomExcludes );
     }

@@ -174,4 +174,9 @@ public class MissingImpactsReport
 
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getMissing() != null && session.getProjectWeb() != null;
+    }
+
 }

@@ -61,4 +61,9 @@ public class MissingReport
         return list;
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getMissing() != null;
+    }
+
 }

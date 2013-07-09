@@ -31,4 +31,9 @@ public class FailedVersionResolutionReport
         }
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getVersionResolutionFailures() != null;
+    }
+
 }

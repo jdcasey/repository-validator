@@ -101,4 +101,9 @@ public class MissingImpactsReport2
                        join( allImpactedList, "\n  " ) );
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getMissing() != null && session.getProjectWeb() != null;
+    }
+
 }

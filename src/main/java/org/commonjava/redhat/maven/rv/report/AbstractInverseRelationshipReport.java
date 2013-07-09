@@ -152,4 +152,9 @@ public abstract class AbstractInverseRelationshipReport
         return result;
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getProjectWeb() != null && getReferencesToReport( session ) != null;
+    }
+
 }

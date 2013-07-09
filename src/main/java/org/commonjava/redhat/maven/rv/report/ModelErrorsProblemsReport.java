@@ -88,4 +88,9 @@ public class ModelErrorsProblemsReport
         return collection == null || collection.isEmpty();
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getErrorsByRef() != null && session.getModelProblems() != null;
+    }
+
 }

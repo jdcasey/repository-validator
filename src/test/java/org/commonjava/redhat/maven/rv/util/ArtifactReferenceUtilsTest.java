@@ -4,8 +4,6 @@ import static org.commonjava.redhat.maven.rv.util.ArtifactReferenceUtils.toArtif
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.junit.Assert.assertThat;
 
-import java.io.File;
-
 import org.apache.maven.graph.common.ref.ArtifactRef;
 import org.apache.maven.graph.common.ref.ProjectVersionRef;
 import org.apache.maven.model.Dependency;
@@ -25,10 +23,8 @@ public class ArtifactReferenceUtilsTest
     public void addErrorForDependencyWithUnresolvableVersionExpression_DoNotFail()
         throws Exception
     {
-        final File repo = temp.newFolder();
-        final File ws = temp.newFolder();
-
-        final ValidatorSession session = new ValidatorSession.Builder( repo, ws ).build();
+        final ValidatorSession session = new ValidatorSession.Builder( null, null ).withGraphingEnabled( false )
+                                                                                   .build();
 
         final Model model = new Model();
         model.setModelVersion( "4.0.0" );

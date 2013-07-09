@@ -38,4 +38,9 @@ public class LowLevelErrorReport
         }
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getLowLevelErrors() != null;
+    }
+
 }

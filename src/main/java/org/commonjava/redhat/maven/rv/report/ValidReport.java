@@ -54,4 +54,9 @@ public class ValidReport
         }
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getSeen() != null && session.getMissing() != null;
+    }
+
 }

@@ -51,4 +51,9 @@ public class ModelWithFailureReport
         }
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getErrorsByRef() != null && session.getModelProblems() != null;
+    }
+
 }

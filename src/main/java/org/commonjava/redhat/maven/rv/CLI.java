@@ -32,23 +32,26 @@ public class CLI
     @Option( name = "-h", aliases = { "--help" }, usage = "Print this message and quit" )
     private boolean help = false;
 
-    @Option( name = "-W", aliases = { "--workspace" }, usage = "Location where output should be written, temp files cached, etc.\nDefault: rv-workspace" )
-    private File workspace = new File( USER_DIR, "rv-workspace" );
+    @Option( name = "-G", aliases = "--graph-relationships", usage = "Build up a graph of project interrelationship, and generate usage/etc. reports from it. WARNING: This is VERY resource-intensive!" )
+    private boolean graphRelationships;
+
+    @Option( name = "-r", aliases = { "--remote-repository" }, usage = "Remote repository URL to use in resolving dependencies, plugins, etc. (specify more than once to use multiple remotes)", multiValued = true )
+    private List<String> remoteRepositories;
 
     @Option( name = "-R", aliases = { "--reports" }, usage = "Write reports here.\nDefault: rv-workspace/reports" )
     private File reports;
 
-    @Option( name = "-Z", aliases = { "--no-system-exit" }, usage = "Don't call System.exit(..) (for embedding/testing)." )
-    private boolean noSystemExit;
+    @Option( name = "-s", aliases = { "--settings" }, usage = "Settings.xml used to specify server authentications for use in artifact resolution" )
+    private String settingsXml;
 
     @Option( name = "-v", aliases = { "-version", "--version" }, usage = "Print the version and quit." )
     private boolean showVersion;
 
-    @Option( name = "-s", aliases = { "--settings" }, usage = "Settings.xml used to specify server authentications for use in artifact resolution" )
-    private String settingsXml;
+    @Option( name = "-W", aliases = { "--workspace" }, usage = "Location where output should be written, temp files cached, etc.\nDefault: rv-workspace" )
+    private File workspace = new File( USER_DIR, "rv-workspace" );
 
-    @Option( name = "-r", aliases = { "--remote-repository" }, usage = "Remote repository URL to use in resolving dependencies, plugins, etc. (specify more than once to use multiple remotes)", multiValued = true )
-    private List<String> remoteRepositories;
+    @Option( name = "-Z", aliases = { "--no-system-exit" }, usage = "Don't call System.exit(..) (for embedding/testing)." )
+    private boolean noSystemExit;
 
     public static void main( final String[] args )
     {
@@ -102,6 +105,7 @@ public class CLI
                                                                      .withPomExcludes( pomExcludePattern )
                                                                      .withSettingsXmlPath( settingsXml )
                                                                      .withRemoteRepositoryUrls( remoteRepositories )
+                                                                     .withGraphingEnabled( graphRelationships )
                                                                      .build();
             new Weld().initialize()
                       .instance()

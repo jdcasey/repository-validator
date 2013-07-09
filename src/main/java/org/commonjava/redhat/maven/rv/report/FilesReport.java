@@ -58,4 +58,9 @@ public class FilesReport
         }
     }
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getAllProjectFiles() != null;
+    }
+
 }

@@ -57,4 +57,9 @@ public abstract class AbstractRelationshipReport<T extends ProjectRelationship<?
 
     protected abstract List<T> sort( Set<T> rels );
 
+    public boolean canRun( final ValidatorSession session )
+    {
+        return session.getProjectWeb() != null && getProjectReferences( session ) != null;
+    }
+
 }
