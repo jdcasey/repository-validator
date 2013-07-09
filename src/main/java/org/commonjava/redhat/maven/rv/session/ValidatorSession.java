@@ -473,34 +473,50 @@ public class ValidatorSession
 
     public void addParentLink( final ProjectVersionRef ref, final ProjectVersionRef parentRef )
     {
-        projectWeb.add( new ParentRelationship( ref, parentRef ) );
+        if ( projectWeb != null )
+        {
+            projectWeb.add( new ParentRelationship( ref, parentRef ) );
+        }
     }
 
     public void addPluginLink( final ProjectVersionRef src, final ProjectVersionRef ref, final int index,
                                final boolean managed, final boolean reporting )
     {
-        final PluginRelationship rel = new PluginRelationship( src, ref, index, managed, reporting );
-        projectWeb.add( rel );
+        if ( projectWeb != null )
+        {
+            final PluginRelationship rel = new PluginRelationship( src, ref, index, managed, reporting );
+            projectWeb.add( rel );
+        }
     }
 
     public void addExtensionLink( final ProjectVersionRef src, final ProjectVersionRef ref, final int index )
     {
-        final ExtensionRelationship rel = new ExtensionRelationship( src, ref, index );
-        projectWeb.add( rel );
+        if ( projectWeb != null )
+        {
+            final ExtensionRelationship rel = new ExtensionRelationship( src, ref, index );
+            projectWeb.add( rel );
+        }
     }
 
     public void addPluginDependencyLink( final ProjectVersionRef src, final ProjectVersionRef plugin,
                                          final ArtifactRef ref, final int index, final boolean managed )
     {
-        final PluginDependencyRelationship rel = new PluginDependencyRelationship( src, plugin, ref, index, managed );
-        projectWeb.add( rel );
+        if ( projectWeb != null )
+        {
+            final PluginDependencyRelationship rel =
+                new PluginDependencyRelationship( src, plugin, ref, index, managed );
+            projectWeb.add( rel );
+        }
     }
 
     public void addDependencyLink( final ProjectVersionRef src, final ArtifactRef ref, final DependencyScope scope,
                                    final int index, final boolean managed )
     {
-        final DependencyRelationship rel = new DependencyRelationship( src, ref, scope, index, managed );
-        projectWeb.add( rel );
+        if ( projectWeb != null )
+        {
+            final DependencyRelationship rel = new DependencyRelationship( src, ref, scope, index, managed );
+            projectWeb.add( rel );
+        }
     }
 
     public ProjectVersionRef getNextToProjectResolve()
