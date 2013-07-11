@@ -420,8 +420,6 @@ public class ValidationManager
                         session.addModelProblem( ref, problem );
                     }
                 }
-
-                session.addMissing( ref );
             }
 
             session.addLowLevelError( new ValidationException( "Failed to build Model for POM: %s. Reason: %s", e,
