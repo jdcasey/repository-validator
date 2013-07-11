@@ -228,7 +228,6 @@ public class ValidationManager
             final Model model = buildModel( ref.toString(), source, session );
             if ( model == null )
             {
-                session.addMissing( ref );
                 continue;
             }
 
@@ -420,6 +419,7 @@ public class ValidationManager
                         session.addModelProblem( ref, problem );
                     }
                 }
+                session.addError( ref, e );
             }
 
             session.addLowLevelError( new ValidationException( "Failed to build Model for POM: %s. Reason: %s", e,
