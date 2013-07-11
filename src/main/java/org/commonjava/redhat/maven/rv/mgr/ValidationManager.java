@@ -66,6 +66,7 @@ import org.commonjava.redhat.maven.rv.comp.MavenComponentManager;
 import org.commonjava.redhat.maven.rv.comp.ValidatorModelResolver;
 import org.commonjava.redhat.maven.rv.report.ValidationReport;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
+import org.commonjava.redhat.maven.rv.util.ValidationLevel;
 import org.commonjava.util.logging.Logger;
 import org.sonatype.aether.impl.ArtifactResolver;
 import org.sonatype.aether.impl.RemoteRepositoryManager;
@@ -556,8 +557,11 @@ public class ValidationManager
         }
 
         validateDependencySections( model, session, src, model );
-        validateBuild( model.getBuild(), session, src, model );
-        validateReporting( model, session, src, model );
+        if ( session.getValidationLevel() == ValidationLevel.FULL )
+        {
+            validateBuild( model.getBuild(), session, src, model );
+            validateReporting( model, session, src, model );
+        }
 
         // FIXME: Not sure what to do with profiles. 
         // I suspect checking them exhaustively will result in a lot of 
@@ -594,13 +598,16 @@ public class ValidationManager
     private void validateDependencySections( final ModelBase base, final ValidatorSession session,
                                              final ProjectVersionRef src, final Model model )
     {
-        final DependencyManagement dm = base.getDependencyManagement();
-        if ( dm != null )
+        if ( model.getPackaging() == "pom" )
         {
-            final List<Dependency> deps = dm.getDependencies();
-            if ( deps != null )
+            final DependencyManagement dm = base.getDependencyManagement();
+            if ( dm != null )
             {
-                validateDependencies( deps, session, true, src, model );
+                final List<Dependency> deps = dm.getDependencies();
+                if ( deps != null )
+                {
+                    validateDependencies( deps, session, true, src, model );
+                }
             }
         }
 
@@ -794,6 +801,14 @@ public class ValidationManager
             int idx = 0;
             for ( final Dependency dependency : deps )
             {
+                final DependencyScope scope = DependencyScope.getScope( dependency.getScope() );
+
+                if ( session.getValidationLevel() == ValidationLevel.RUNTIME
+                    && !DependencyScope.runtime.implies( scope ) )
+                {
+                    continue;
+                }
+
                 //                logger.info( "[DEP] %s", dependency );
 
                 ArtifactRef ref = toArtifactRef( dependency, src, session, model );

@@ -44,6 +44,7 @@ import org.commonjava.maven.atlas.spi.neo4j.effective.FileNeo4JEGraphDriver;
 import org.commonjava.redhat.maven.rv.ValidationException;
 import org.commonjava.redhat.maven.rv.comp.MavenComponentManager;
 import org.commonjava.redhat.maven.rv.report.ValidationReport;
+import org.commonjava.redhat.maven.rv.util.ValidationLevel;
 import org.sonatype.aether.RepositorySystemSession;
 import org.sonatype.aether.repository.RemoteRepository;
 
@@ -107,6 +108,8 @@ public class ValidatorSession
 
     private List<String> remoteRepoUrls;
 
+    private final ValidationLevel validationLevel;
+
     public static final class Builder
     {
         private final File repositoryDirectory;
@@ -125,10 +128,18 @@ public class ValidatorSession
 
         private boolean graphRelationships;
 
+        private ValidationLevel validationLevel = ValidationLevel.RUNTIME;
+
         public Builder( final File repositoryDirectory, final File workspaceDirectory )
         {
             this.repositoryDirectory = repositoryDirectory;
             this.workspaceDirectory = workspaceDirectory;
+        }
+
+        public Builder withValidationLevel( final ValidationLevel level )
+        {
+            this.validationLevel = level;
+            return this;
         }
 
         public Builder withReportsDirectory( final File reportsDirectory )
@@ -181,7 +192,7 @@ public class ValidatorSession
             }
 
             return new ValidatorSession( remoteRepos, settingsXml, repositoryDirectory, workspaceDirectory, reports,
-                                         downloads, pomExcludes, graphRelationships );
+                                         downloads, pomExcludes, graphRelationships, validationLevel );
         }
 
         public Builder withSettingsXmlPath( final String settingsXml )
@@ -206,7 +217,7 @@ public class ValidatorSession
     private ValidatorSession( final List<String> remoteRepos, final String settingsXml, final File repositoryDirectory,
                               final File workspaceDirectory, final File reportsDirectory,
                               final File downloadsDirectory, final Set<String> pomExcludes,
-                              final boolean graphRelationships )
+                              final boolean graphRelationships, final ValidationLevel validationLevel )
     {
         this.remoteRepoUrls = remoteRepos;
         this.settingsXmlPath = settingsXml;
@@ -214,6 +225,7 @@ public class ValidatorSession
         this.workspaceDirectory = workspaceDirectory;
         this.reportsDirectory = reportsDirectory;
         this.downloadsDirectory = downloadsDirectory;
+        this.validationLevel = validationLevel;
 
         final File depgraphDir = new File( workspaceDirectory, "depgraph" );
         depgraphDir.mkdirs();
@@ -682,6 +694,11 @@ public class ValidatorSession
     public List<RemoteRepository> getRemoteRepositoriesForResolution()
     {
         return projectSession.getRemoteRepositoriesForResolution();
+    }
+
+    public ValidationLevel getValidationLevel()
+    {
+        return validationLevel;
     }
 
 }

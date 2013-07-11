@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.commonjava.redhat.maven.rv.mgr.ValidationManager;
 import org.commonjava.redhat.maven.rv.session.ValidatorSession;
+import org.commonjava.redhat.maven.rv.util.ValidationLevel;
 import org.jboss.weld.environment.se.Weld;
 import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.CmdLineException;
@@ -28,6 +29,9 @@ public class CLI
 
     @Option( name = "-e", usage = "POM exclude path pattern (glob)" )
     private String pomExcludePattern;
+
+    @Option( name = "-F", aliases = "--full-validation", usage = "Full validation (default is runtime dependencies only)" )
+    private boolean fullValidation = false;
 
     @Option( name = "-h", aliases = { "--help" }, usage = "Print this message and quit" )
     private boolean help = false;
@@ -100,13 +104,20 @@ public class CLI
         final long start = System.currentTimeMillis();
         try
         {
-            final ValidatorSession session =
+            final ValidatorSession.Builder builder =
                 new ValidatorSession.Builder( repository, workspace ).withReportsDirectory( reports )
                                                                      .withPomExcludes( pomExcludePattern )
                                                                      .withSettingsXmlPath( settingsXml )
                                                                      .withRemoteRepositoryUrls( remoteRepositories )
-                                                                     .withGraphingEnabled( graphRelationships )
-                                                                     .build();
+                                                                     .withGraphingEnabled( graphRelationships );
+
+            if ( fullValidation )
+            {
+                builder.withValidationLevel( ValidationLevel.FULL );
+            }
+
+            final ValidatorSession session = builder.build();
+
             new Weld().initialize()
                       .instance()
                       .select( ValidationManager.class )
